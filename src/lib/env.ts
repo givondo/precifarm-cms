@@ -3,6 +3,8 @@
  * Copy `.env.example` → `.env` and fill in live values for production.
  */
 
+import { isDatabaseConfigured } from "@/lib/database-url";
+
 export type MpesaEnvironment = "sandbox" | "production";
 
 function trim(name: string): string | undefined {
@@ -70,8 +72,8 @@ export function envSummary() {
     hasPasskey: !!mpesaEnv.passkey,
     hasShortcode: !!mpesaEnv.shortcode,
     callbackHost: mpesaEnv.callbackUrl ? safeHost(mpesaEnv.callbackUrl) : null,
-    databaseConfigured: !!appEnv.databaseUrl,
-    storageBackend: appEnv.databaseUrl ? "postgresql" : "json-file",
+    databaseConfigured: isDatabaseConfigured(),
+    storageBackend: isDatabaseConfigured() ? "postgresql" : "json-file",
   };
 }
 

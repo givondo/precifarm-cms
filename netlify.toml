@@ -6,6 +6,7 @@
   NODE_VERSION = "20"
   # Allow DATABASE_URL in server bundles; omit docs from secret pattern matching
   SECRETS_SCAN_OMIT_PATHS = "docs/**,.next/**"
+  SECRETS_SCAN_OMIT_KEYS = "DATABASE_URL,SUPABASE_DB_PASSWORD"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

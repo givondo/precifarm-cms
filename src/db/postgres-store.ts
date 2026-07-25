@@ -3,11 +3,12 @@ import { eq } from "drizzle-orm";
 import { getDb } from "./client";
 import { appStore } from "./schema";
 import { normalizeStore, seedStore, type DataStore } from "./store";
+import { getDatabaseUrl } from "@/lib/database-url";
 
 const STORE_ID = "default";
 
 function getSql() {
-  const url = process.env.DATABASE_URL!;
+  const url = getDatabaseUrl()!;
   return postgres(url, {
     max: 1,
     prepare: false,

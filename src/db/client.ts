@@ -5,22 +5,24 @@ import * as schema from "./schema";
 let client: ReturnType<typeof postgres> | null = null;
 let db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
+import { getDatabaseUrl, isDatabaseConfigured } from "@/lib/database-url";
+
 export function isPostgresEnabled(): boolean {
-  return Boolean(process.env.DATABASE_URL);
+  return isDatabaseConfigured();
 }
 
 export function getDb() {
-  if (!process.env.DATABASE_URL) {
+  const databaseUrl = getDatabaseUrl();
+  if (!databaseUrl) {
     throw new Error("DATABASE_URL is not set. Using JSON file store.");
   }
   if (!client) {
-    const url = process.env.DATABASE_URL;
-    client = postgres(url, {
+    client = postgres(databaseUrl, {
       max: 1,
       prepare: false,
       connect_timeout: 15,
       idle_timeout: 20,
-      ssl: url.includes("supabase") ? "require" : undefined,
+      ssl: databaseUrl.includes("supabase") ? "require" : undefined,
     });
     db = drizzle(client, { schema });
   }

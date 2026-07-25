@@ -1,16 +1,16 @@
 import postgres from "postgres";
-import { appEnv } from "@/lib/env";
+import { getDatabaseUrl } from "@/lib/database-url";
 
 /** Server-only — ping Supabase/PostgreSQL for /api/v1/health. */
 export async function checkDatabaseConnection(): Promise<{
   ok: boolean;
   error?: string;
 }> {
-  if (!appEnv.databaseUrl) {
-    return { ok: false, error: "DATABASE_URL not set" };
+  const url = getDatabaseUrl();
+  if (!url) {
+    return { ok: false, error: "Database not configured" };
   }
 
-  const url = appEnv.databaseUrl;
   const sql = postgres(url, {
     max: 1,
     prepare: false,
