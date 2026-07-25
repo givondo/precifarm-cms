@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getAnalyticsIngestStatus, isAnalyticsIngestEnabled } from "@/lib/analytics";
 import { checkDatabaseConnection } from "@/lib/db-health";
 import { envSummary } from "@/lib/env";
 
@@ -8,6 +9,7 @@ export async function GET() {
   const database = summary.databaseConfigured
     ? await checkDatabaseConnection()
     : { ok: false, error: "DATABASE_URL not set" };
+  const analytics = await getAnalyticsIngestStatus();
 
   return NextResponse.json({
     data: {
@@ -15,6 +17,9 @@ export async function GET() {
       ...summary,
       databaseOk: database.ok,
       databaseError: database.error ?? null,
+      analyticsIngestEnabled: isAnalyticsIngestEnabled(),
+      analyticsPostgres: analytics.postgres,
+      analyticsEnvironment: analytics.environment,
     },
   });
 }

@@ -24,6 +24,12 @@ import {
 import { logSms } from "@/lib/sms";
 import { logAudit } from "@/lib/audit";
 import {
+  trackBookingCreated,
+  trackBookingPaid,
+  trackPaymentFailed,
+  trackPaymentInitiated,
+} from "@/lib/analytics";
+import {
   getDeliveryMessagesForBooking,
   listCargoDeliveries,
   listLastMileDeliveries,
@@ -164,6 +170,18 @@ export async function createBooking(input: CreateBookingInput) {
     seats: input.seats,
   });
 
+  trackBookingCreated({
+    bookingId,
+    reference,
+    customerId,
+    channel: booking.channel,
+    routeId: input.routeId,
+    seatCount: input.passengers,
+    amountKes: booking.totalAmount,
+    bookingType: "passenger",
+    analytics: input.analytics,
+  });
+
   return {
     data: {
       bookingId,
@@ -287,6 +305,19 @@ export async function completePayment(
   await logAudit("payment", paymentId, "completed", options.agentId ? "agent" : "system", options.agentId, {
     method,
     receipt,
+  });
+
+  trackBookingPaid({
+    bookingId,
+    reference: booking.reference,
+    customerId: booking.customerId,
+    channel: booking.channel,
+    routeId: trip.routeId,
+    seatCount: booking.passengerCount ?? seats.length,
+    amountKes: booking.totalAmount,
+    bookingType: booking.bookingType,
+    method,
+    isDemo: options.isDemo ?? false,
   });
 
   logSms({
@@ -658,6 +689,15 @@ export async function processStkPayment(bookingId: string) {
     checkoutRequestId: stkResult.checkoutRequestId,
   });
 
+  trackPaymentInitiated({
+    bookingId,
+    reference: booking.reference,
+    customerId: booking.customerId,
+    channel: booking.channel,
+    method: "mpesa",
+    amountKes: booking.totalAmount,
+  });
+
   return {
     data: {
       status: "pending" as const,
@@ -696,6 +736,17 @@ export async function handleMpesaCallback(body: MpesaCallbackBody) {
       p.status = "failed";
       p.failureReason = parsed.resultDesc;
     });
+    const booking = store.bookings.find((b) => b.id === payment.bookingId);
+    if (booking) {
+      trackPaymentFailed({
+        bookingId: booking.id,
+        reference: booking.reference,
+        customerId: booking.customerId,
+        channel: booking.channel,
+        method: "mpesa",
+        failureCode: "mpesa_callback_failed",
+      });
+    }
     return { data: { status: "failed", reason: parsed.resultDesc }, status: 200 as const };
   }
 
@@ -795,6 +846,17 @@ export async function createCargoBooking(input: CreateCargoBookingInput) {
     reference,
     weightKg: input.weightKg,
     lastMileDelivery: input.lastMileDelivery ?? false,
+  });
+
+  trackBookingCreated({
+    bookingId,
+    reference,
+    customerId,
+    channel: booking.channel,
+    routeId: input.routeId,
+    seatCount: 0,
+    amountKes: total,
+    bookingType: "cargo",
   });
 
   return {

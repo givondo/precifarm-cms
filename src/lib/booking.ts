@@ -14,7 +14,17 @@ export function getLocalDateString(date = new Date()): string {
 }
 
 export type BookingStatus = "pending" | "paid" | "failed" | "cancelled" | "refunded";
-export type BookingChannel = "web" | "pwa" | "agent_walkin" | "agent_callin";
+export type BookingChannel = "web" | "pwa" | "mobile" | "agent_walkin" | "agent_callin";
+
+export type BookingAnalyticsContext = {
+  anonymousId?: string;
+  sessionId?: string;
+  acquisitionSource?: string;
+  acquisitionMedium?: string;
+  acquisitionCampaign?: string;
+  acquisitionTerm?: string;
+  acquisitionContent?: string;
+};
 
 export type CreateBookingInput = {
   routeId: string;
@@ -29,6 +39,7 @@ export type CreateBookingInput = {
   channel?: BookingChannel;
   agentId?: string;
   notes?: string;
+  analytics?: BookingAnalyticsContext;
 };
 
 export function calculateFare(passengers: number, farePerSeat = nairobiKisumuRoute.fare): number {

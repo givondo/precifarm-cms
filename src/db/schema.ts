@@ -192,3 +192,112 @@ export const appStore = pgTable("app_store", {
   data: jsonb("data").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Behavioural analytics events (website, mobile, server). */
+export const analyticsEvents = pgTable("analytics_events", {
+  eventId: uuid("event_id").primaryKey(),
+  eventName: varchar("event_name", { length: 64 }).notNull(),
+  schemaVersion: integer("schema_version").notNull().default(1),
+  eventTimestamp: timestamp("event_timestamp", { withTimezone: true }).notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  anonymousId: uuid("anonymous_id"),
+  customerId: uuid("customer_id"),
+  sessionId: uuid("session_id"),
+  platform: varchar("platform", { length: 16 }).notNull(),
+  environment: varchar("environment", { length: 16 }).notNull(),
+  appVersion: varchar("app_version", { length: 32 }),
+  deviceId: varchar("device_id", { length: 64 }),
+  pageUrl: text("page_url"),
+  screenName: varchar("screen_name", { length: 128 }),
+  feature: varchar("feature", { length: 64 }),
+  objectType: varchar("object_type", { length: 64 }),
+  objectId: varchar("object_id", { length: 64 }),
+  requestId: uuid("request_id"),
+  bookingId: uuid("booking_id"),
+  bookingReference: varchar("booking_reference", { length: 32 }),
+  eventProperties: jsonb("event_properties").notNull().default({}),
+  metadata: jsonb("metadata"),
+});
+
+export const analyticsIdentity = pgTable("analytics_identity", {
+  anonymousId: uuid("anonymous_id").primaryKey(),
+  customerId: uuid("customer_id"),
+  mergedAt: timestamp("merged_at", { withTimezone: true }),
+  platform: varchar("platform", { length: 16 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const analyticsAcquisition = pgTable("analytics_acquisition", {
+  anonymousId: uuid("anonymous_id").primaryKey(),
+  firstTouchSource: varchar("first_touch_source", { length: 128 }),
+  firstTouchMedium: varchar("first_touch_medium", { length: 128 }),
+  firstTouchCampaign: varchar("first_touch_campaign", { length: 128 }),
+  firstTouchTerm: varchar("first_touch_term", { length: 128 }),
+  firstTouchContent: varchar("first_touch_content", { length: 128 }),
+  firstTouchAt: timestamp("first_touch_at", { withTimezone: true }),
+  lastTouchSource: varchar("last_touch_source", { length: 128 }),
+  lastTouchMedium: varchar("last_touch_medium", { length: 128 }),
+  lastTouchCampaign: varchar("last_touch_campaign", { length: 128 }),
+  lastTouchAt: timestamp("last_touch_at", { withTimezone: true }),
+});
+
+export const analyticsDailyMetrics = pgTable(
+  "analytics_daily_metrics",
+  {
+    metricDate: date("metric_date").notNull(),
+    environment: varchar("environment", { length: 16 }).notNull(),
+    metricName: varchar("metric_name", { length: 64 }).notNull(),
+    metricValue: decimal("metric_value", { precision: 18, scale: 4 }).notNull(),
+    dimensions: jsonb("dimensions").notNull().default({}),
+    computedAt: timestamp("computed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("analytics_daily_metrics_unique").on(
+      t.metricDate,
+      t.environment,
+      t.metricName,
+      t.dimensions
+    ),
+  ]
+);
+
+export const analyticsErrors = pgTable("analytics_errors", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+  environment: varchar("environment", { length: 16 }).notNull(),
+  platform: varchar("platform", { length: 16 }),
+  errorCategory: varchar("error_category", { length: 64 }),
+  severity: varchar("severity", { length: 16 }),
+  endpoint: varchar("endpoint", { length: 256 }),
+  requestId: uuid("request_id"),
+  anonymousId: uuid("anonymous_id"),
+  message: text("message"),
+  metadata: jsonb("metadata"),
+});
+
+/** CMS admin / operational audit (separate from product analytics events). */
+export const analyticsAuditLog = pgTable("analytics_audit_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+  actorId: uuid("actor_id").notNull(),
+  actorRole: varchar("actor_role", { length: 32 }),
+  action: varchar("action", { length: 64 }).notNull(),
+  objectType: varchar("object_type", { length: 64 }),
+  objectId: varchar("object_id", { length: 64 }),
+  success: boolean("success").notNull().default(true),
+  metadata: jsonb("metadata"),
+});
+
+/** Website contact form submissions (operational — not duplicated in analytics events). */
+export const contactSubmissions = pgTable("contact_submissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 128 }).notNull(),
+  email: varchar("email", { length: 256 }).notNull(),
+  phone: varchar("phone", { length: 32 }),
+  interest: varchar("interest", { length: 128 }).notNull(),
+  message: text("message").notNull(),
+  channel: varchar("channel", { length: 16 }).notNull().default("web"),
+  anonymousId: uuid("anonymous_id"),
+  environment: varchar("environment", { length: 16 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

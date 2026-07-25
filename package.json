@@ -15,6 +15,9 @@
     "db:seed": "npx tsx scripts/seed-postgres.ts",
     "supabase:setup": "node scripts/setup-supabase.mjs",
     "netlify:database-url": "node scripts/print-netlify-database-url.mjs",
+  "analytics:aggregate": "npx tsx scripts/aggregate-analytics-daily.ts",
+    "analytics:views": "node scripts/create-analytics-views.mjs",
+    "analytics:cron": "netlify functions:invoke analytics-daily",
     "test:mpesa-auth": "node scripts/test-mpesa-auth.mjs",
     "test:stk": "node scripts/test-stk.mjs",
     "tunnel:mpesa": "node scripts/start-mpesa-tunnel.mjs"

@@ -8,41 +8,46 @@ type NavItem = { href: string; label: string; hint?: string };
 
 type NavSection = { title: string; items: NavItem[] };
 
-const navSections: NavSection[] = [
-  {
-    title: "Overview",
-    items: [{ href: "/dashboard", label: "Dashboard" }],
-  },
-  {
-    title: "Sales & booking",
-    items: [
-      { href: "/quick-book", label: "Quick Book", hint: "Passenger tickets" },
-      { href: "/cargo-book", label: "Cargo Book", hint: "Waybills & last mile" },
-    ],
-  },
-  {
-    title: "Cargo operations",
-    items: [
-      { href: "/delivery", label: "Delivery tracking", hint: "Stage updates & SMS" },
-      { href: "/last-mile", label: "Last mile", hint: "Riders & dispatch" },
-    ],
-  },
-  {
-    title: "Records",
-    items: [
-      { href: "/bookings", label: "Bookings" },
-      { href: "/lookup", label: "Lookup" },
-      { href: "/customers", label: "Customers" },
-    ],
-  },
-  {
-    title: "Finance",
-    items: [
-      { href: "/cash-session", label: "Cash session" },
-      { href: "/reconciliation", label: "Reconciliation" },
-    ],
-  },
-];
+function buildNavSections(role: string): NavSection[] {
+  return [
+    {
+      title: "Overview",
+      items: [{ href: "/dashboard", label: "Dashboard" }],
+    },
+    {
+      title: "Sales & booking",
+      items: [
+        { href: "/quick-book", label: "Quick Book", hint: "Passenger tickets" },
+        { href: "/cargo-book", label: "Cargo Book", hint: "Waybills & last mile" },
+      ],
+    },
+    {
+      title: "Cargo operations",
+      items: [
+        { href: "/delivery", label: "Delivery tracking", hint: "Stage updates & SMS" },
+        { href: "/last-mile", label: "Last mile", hint: "Riders & dispatch" },
+      ],
+    },
+    {
+      title: "Records",
+      items: [
+        { href: "/bookings", label: "Bookings" },
+        { href: "/lookup", label: "Lookup" },
+        { href: "/customers", label: "Customers" },
+      ],
+    },
+    {
+      title: "Finance",
+      items: [
+        { href: "/cash-session", label: "Cash session" },
+        { href: "/reconciliation", label: "Reconciliation" },
+        ...(role === "admin"
+          ? [{ href: "/analytics", label: "Analytics", hint: "North Star & funnels" }]
+          : []),
+      ],
+    },
+  ];
+}
 
 export default function Sidebar({
   agent,
@@ -51,6 +56,7 @@ export default function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const navSections = buildNavSections(agent.role);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
