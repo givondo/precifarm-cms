@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = getOpenCashSession(agent.id);
+  const session = await getOpenCashSession(agent.id);
   if (!session) {
     return NextResponse.json(
       {
@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = completePayment(body.bookingId, "cash", {
+  const result = await completePayment(body.bookingId, "cash", {
     agentId: agent.id,
     cashSessionId: session.id,
   });

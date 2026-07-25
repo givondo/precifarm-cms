@@ -4,8 +4,16 @@ import crypto from "crypto";
 import { nairobiKisumuRoute } from "@/lib/route";
 import { CARGO_CAPACITY_KG } from "@/lib/cargo";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = serverlessDataDir();
 const STORE_PATH = path.join(DATA_DIR, "store.json");
+
+function serverlessDataDir(): string {
+  // Netlify/Vercel/Lambda have a read-only app dir; /tmp is writable per invocation.
+  if (process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL) {
+    return path.join("/tmp", "precifarm-cms-data");
+  }
+  return path.join(process.cwd(), "data");
+}
 
 export type StoreRoute = {
   id: string;
@@ -203,7 +211,12 @@ const emptyStore = (): DataStore => ({
 });
 
 function readStore(): DataStore {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch {
+    return seedStore();
+  }
+
   if (!fs.existsSync(STORE_PATH)) {
     const store = seedStore();
     writeStore(store);
@@ -236,7 +249,7 @@ function readStore(): DataStore {
   return parsed;
 }
 
-function normalizeStore(store: DataStore): { store: DataStore; changed: boolean } {
+export function normalizeStore(store: DataStore): { store: DataStore; changed: boolean } {
   let changed = false;
 
   if (!store.cargoDetails) {
@@ -280,10 +293,14 @@ function normalizeStore(store: DataStore): { store: DataStore; changed: boolean 
 }
 
 function writeStore(store: DataStore) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const tmpPath = `${STORE_PATH}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(store, null, 2), "utf-8");
-  fs.renameSync(tmpPath, STORE_PATH);
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    const tmpPath = `${STORE_PATH}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(store, null, 2), "utf-8");
+    fs.renameSync(tmpPath, STORE_PATH);
+  } catch {
+    // Read-only or ephemeral FS (e.g. Netlify serverless) — in-memory cache still works.
+  }
 }
 
 function seedRiders(now: string): StoreRider[] {
@@ -341,7 +358,7 @@ function seedRiders(now: string): StoreRider[] {
   ];
 }
 
-function seedStore(): DataStore {
+export function seedStore(): DataStore {
   const now = new Date().toISOString();
   const store = emptyStore();
 

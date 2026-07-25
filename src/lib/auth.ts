@@ -6,13 +6,14 @@ export const SESSION_COOKIE = "precifarm_agent_session";
 export type SessionAgent = Pick<StoreAgent, "id" | "email" | "name" | "role" | "branch">;
 
 export async function getSessionAgent(): Promise<SessionAgent | null> {
-  ensureSeeded();
+  await ensureSeeded();
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
   const agentId = cookieStore.get(SESSION_COOKIE)?.value;
   if (!agentId) return null;
 
-  const agent = getStore().agents.find((a) => a.id === agentId && a.isActive);
+  const store = await getStore();
+  const agent = store.agents.find((a) => a.id === agentId && a.isActive);
   if (!agent) return null;
 
   return {
@@ -24,9 +25,13 @@ export async function getSessionAgent(): Promise<SessionAgent | null> {
   };
 }
 
-export function authenticateAgent(email: string, password: string): SessionAgent | null {
-  ensureSeeded();
-  const agent = getStore().agents.find(
+export async function authenticateAgent(
+  email: string,
+  password: string
+): Promise<SessionAgent | null> {
+  await ensureSeeded();
+  const store = await getStore();
+  const agent = store.agents.find(
     (a) => a.email === email && a.password === password && a.isActive
   );
   if (!agent) return null;

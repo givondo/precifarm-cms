@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = createCargoBooking({
+  const result = await createCargoBooking({
     ...body,
     channel: body.channel ?? (agent ? "agent_walkin" : "web"),
     agentId: agent?.id,
@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const session = getOpenCashSession(agent.id);
+  const session = await getOpenCashSession(agent.id);
   if (!session) {
     return NextResponse.json(
       {
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const payment = completePayment(result.data!.bookingId, "cash", {
+  const payment = await completePayment(result.data!.bookingId, "cash", {
     agentId: agent.id,
     cashSessionId: session.id,
   });

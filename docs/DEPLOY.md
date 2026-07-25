@@ -28,6 +28,18 @@ Repository: `givondo/precifarm-cms` (after push)
 
 Health check: `GET /api/v1/health`
 
+## Netlify + Supabase (recommended for production)
+
+**Database:** [Supabase PostgreSQL](./DEPLOY-SUPABASE.md) — persistent storage for bookings and payments.
+
+**App host:** Netlify (Next.js UI + API).
+
+1. Complete [DEPLOY-SUPABASE.md](./DEPLOY-SUPABASE.md) (schema push + `DATABASE_URL`)
+2. Import `givondo/precifarm-cms` at [app.netlify.com](https://app.netlify.com)
+3. Build: `npm run build:netlify`, publish `.next` (see `netlify.toml`)
+4. Add env vars: `DATABASE_URL` + M-Pesa vars from `.env.example`
+5. Optional domain: `cms.precifarm.co.ke`
+
 ## Netlify (alternative — precifarm.com already uses Netlify)
 
 1. [app.netlify.com](https://app.netlify.com) → **Add new site** → **Import from Git** → `givondo/precifarm-cms`

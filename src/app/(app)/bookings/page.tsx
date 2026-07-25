@@ -10,7 +10,7 @@ export default async function BookingsPage({
   searchParams: Promise<{ status?: string; channel?: string; q?: string }>;
 }) {
   const params = await searchParams;
-  const results = listBookings({
+  const results = await listBookings({
     status: params.status,
     channel: params.channel,
     search: params.q,

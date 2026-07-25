@@ -1,8 +1,8 @@
 import { listCustomers } from "@/lib/services";
 import { formatPhoneDisplay } from "@/lib/booking";
 
-export default function CustomersPage() {
-  const customersWithBookings = listCustomers();
+export default async function CustomersPage() {
+  const customersWithBookings = await listCustomers();
 
   return (
     <div>

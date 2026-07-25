@@ -8,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const session = getOpenCashSession(agent.id);
+  const session = await getOpenCashSession(agent.id);
   return NextResponse.json({ data: { session: session ?? null } });
 }
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const openingFloat = body.openingFloat ?? 0;
 
-  const result = openCashSession(agent.id, openingFloat);
+  const result = await openCashSession(agent.id, openingFloat);
   if ("error" in result && result.error) {
     return NextResponse.json({ error: { message: result.error } }, { status: result.status });
   }

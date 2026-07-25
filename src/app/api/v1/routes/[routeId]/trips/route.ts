@@ -16,7 +16,7 @@ export async function GET(
     );
   }
 
-  const result = listTripsForRoute(routeId, date);
+  const result = await listTripsForRoute(routeId, date);
   if ("error" in result && result.error) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: result.error } },

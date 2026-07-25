@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ tripId: string }> }
 ) {
   const { tripId } = await params;
-  const trip = getTripById(tripId);
+  const trip = await getTripById(tripId);
 
   if (!trip) {
     return NextResponse.json(
@@ -17,9 +17,10 @@ export async function GET(
     );
   }
 
-  ensureSeeded();
-  const route = getStore().routes.find((r) => r.id === trip.routeId)!;
-  const bookedSeats = getBookedSeats(tripId);
+  await ensureSeeded();
+  const store = await getStore();
+  const route = store.routes.find((r) => r.id === trip.routeId)!;
+  const bookedSeats = await getBookedSeats(tripId);
 
   return NextResponse.json({
     data: {

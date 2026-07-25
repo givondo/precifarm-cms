@@ -8,7 +8,7 @@ export default async function ReconciliationPage({
 }) {
   const params = await searchParams;
   const date = params.date ?? getLocalDateString();
-  const report = getReconciliationReport(date);
+  const report = await getReconciliationReport(date);
 
   return (
     <div>

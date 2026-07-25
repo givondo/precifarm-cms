@@ -8,7 +8,7 @@ export default async function DeliveryPage({
 }) {
   const params = await searchParams;
   const filter = params.status === "completed" ? "completed" : "active";
-  const rows = listCargoDeliveries({
+  const rows = await listCargoDeliveries({
     status: filter,
     search: params.q,
   });

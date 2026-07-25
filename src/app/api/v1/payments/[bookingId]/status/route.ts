@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ bookingId: string }> }
 ) {
   const { bookingId } = await params;
-  const result = getPaymentStatus(bookingId);
+  const result = await getPaymentStatus(bookingId);
 
   if ("error" in result && result.error) {
     return NextResponse.json(

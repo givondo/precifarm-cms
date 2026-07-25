@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ResultCode: 1, ResultDesc: "Invalid JSON" }, { status: 400 });
   }
 
-  const result = handleMpesaCallback(body);
+  const result = await handleMpesaCallback(body);
 
   if ("error" in result && result.error) {
     return NextResponse.json({ ResultCode: 1, ResultDesc: result.error });

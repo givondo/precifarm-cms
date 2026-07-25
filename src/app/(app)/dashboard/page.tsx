@@ -29,9 +29,9 @@ const quickLinks = [
   },
 ];
 
-export default function DashboardPage() {
-  const stats = getDashboardStats();
-  const recent = listBookings().slice(0, 8);
+export default async function DashboardPage() {
+  const stats = await getDashboardStats();
+  const recent = (await listBookings()).slice(0, 8);
   const payment = paymentModeDisplay(getPaymentMode());
 
   return (

@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const status = searchParams.get("status");
   const search = searchParams.get("q") ?? undefined;
 
-  const data = listCargoDeliveries({
+  const data = await listCargoDeliveries({
     status: status === "active" || status === "completed" ? status : undefined,
     search,
   });

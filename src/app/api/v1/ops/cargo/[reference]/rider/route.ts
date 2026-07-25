@@ -21,7 +21,7 @@ export async function POST(
     return apiError("VALIDATION_ERROR", "riderId is required.", 400);
   }
 
-  const result = assignRiderToCargo(reference, body.riderId, auth.agent.id, {
+  const result = await assignRiderToCargo(reference, body.riderId, auth.agent.id, {
     dispatch: body.dispatch,
   });
 

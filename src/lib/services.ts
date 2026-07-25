@@ -45,9 +45,9 @@ export type {
   RiderSummary,
 } from "@/lib/cargo-delivery";
 
-export function getOrCreateTrip(routeId: string, date: string, time: string) {
-  ensureSeeded();
-  const store = getStore();
+export async function getOrCreateTrip(routeId: string, date: string, time: string) {
+  await ensureSeeded();
+  const store = await getStore();
   const existing = store.trips.find(
     (t) => t.routeId === routeId && t.travelDate === date && t.departureTime === time
   );
@@ -67,16 +67,16 @@ export function getOrCreateTrip(routeId: string, date: string, time: string) {
     updatedAt: now,
   };
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     s.trips.push(trip);
   });
 
   return trip;
 }
 
-export function getBookedSeats(tripId: string): string[] {
-  ensureSeeded();
-  const store = getStore();
+export async function getBookedSeats(tripId: string): Promise<string[]> {
+  await ensureSeeded();
+  const store = await getStore();
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
   const allSeats: string[] = [];
@@ -88,19 +88,19 @@ export function getBookedSeats(tripId: string): string[] {
   return allSeats;
 }
 
-export function areSeatsAvailable(tripId: string, seats: string[]): boolean {
-  const booked = new Set(getBookedSeats(tripId));
+export async function areSeatsAvailable(tripId: string, seats: string[]): Promise<boolean> {
+  const booked = new Set(await getBookedSeats(tripId));
   return seats.every((s) => !booked.has(s));
 }
 
-function upsertCustomer(name: string, phone: string, email?: string): string {
+async function upsertCustomer(name: string, phone: string, email?: string): Promise<string> {
   const phoneE164 = normalizeKenyanPhone(phone)!;
   const now = new Date().toISOString();
-  const store = getStore();
+  const store = await getStore();
   const existing = store.customers.find((c) => c.phoneE164 === phoneE164);
 
   if (existing) {
-    mutateStore((s) => {
+    await mutateStore((s) => {
       const c = s.customers.find((x) => x.id === existing.id)!;
       c.name = name;
       c.email = email ?? c.email;
@@ -110,18 +110,18 @@ function upsertCustomer(name: string, phone: string, email?: string): string {
   }
 
   const id = crypto.randomUUID();
-  mutateStore((s) => {
+  await mutateStore((s) => {
     s.customers.push({ id, phoneE164, name, email, createdAt: now, updatedAt: now });
   });
   return id;
 }
 
-export function createBooking(input: CreateBookingInput) {
+export async function createBooking(input: CreateBookingInput) {
   const error = validateBookingInput(input);
   if (error) return { error, status: 400 as const };
 
-  const trip = getOrCreateTrip(input.routeId, input.date, input.time);
-  if (!areSeatsAvailable(trip.id, input.seats)) {
+  const trip = await getOrCreateTrip(input.routeId, input.date, input.time);
+  if (!(await areSeatsAvailable(trip.id, input.seats))) {
     return {
       error: "One or more selected seats are no longer available. Please choose different seats.",
       status: 409 as const,
@@ -129,7 +129,7 @@ export function createBooking(input: CreateBookingInput) {
   }
 
   const now = new Date().toISOString();
-  const customerId = upsertCustomer(input.name, input.phone, input.email);
+  const customerId = await upsertCustomer(input.name, input.phone, input.email);
   const bookingId = crypto.randomUUID();
   const reference = generateBookingReference();
 
@@ -155,11 +155,11 @@ export function createBooking(input: CreateBookingInput) {
     updatedAt: now,
   };
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     s.bookings.push(booking);
   });
 
-  logAudit("booking", bookingId, "created", input.agentId ? "agent" : "customer", input.agentId, {
+  await logAudit("booking", bookingId, "created", input.agentId ? "agent" : "customer", input.agentId, {
     reference,
     seats: input.seats,
   });
@@ -176,7 +176,7 @@ export function createBooking(input: CreateBookingInput) {
   };
 }
 
-export function completePayment(
+export async function completePayment(
   bookingId: string,
   method: "mpesa" | "cash",
   options: {
@@ -187,7 +187,7 @@ export function completePayment(
     existingPaymentId?: string;
   } = {}
 ) {
-  const store = getStore();
+  const store = await getStore();
   const booking = store.bookings.find((b) => b.id === bookingId);
   if (!booking) return { error: "Booking not found.", status: 404 as const };
   if (booking.status === "paid") return { error: "Booking already paid.", status: 409 as const };
@@ -234,7 +234,7 @@ export function completePayment(
           total: booking.totalAmount,
         });
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     if (options.existingPaymentId) {
       const p = s.payments.find((x) => x.id === options.existingPaymentId)!;
       p.status = "completed";
@@ -284,7 +284,7 @@ export function completePayment(
     }
   });
 
-  logAudit("payment", paymentId, "completed", options.agentId ? "agent" : "system", options.agentId, {
+  await logAudit("payment", paymentId, "completed", options.agentId ? "agent" : "system", options.agentId, {
     method,
     receipt,
   });
@@ -299,7 +299,7 @@ export function completePayment(
   });
 
   if (booking.bookingType === "cargo" && cargo) {
-    onCargoPaymentConfirmed({
+    await onCargoPaymentConfirmed({
       bookingId,
       reference: booking.reference,
       smsBody,
@@ -322,14 +322,14 @@ export function completePayment(
   };
 }
 
-export function listBookings(filters?: {
+export async function listBookings(filters?: {
   date?: string;
   status?: string;
   channel?: string;
   search?: string;
 }) {
-  ensureSeeded();
-  const store = getStore();
+  await ensureSeeded();
+  const store = await getStore();
 
   let results = store.bookings
     .map((booking) => ({
@@ -361,13 +361,15 @@ export function listBookings(filters?: {
   return results;
 }
 
-export function getDashboardStats() {
-  ensureSeeded();
+export async function getDashboardStats() {
+  await ensureSeeded();
   const today = getLocalDateString();
-  const store = getStore();
+  const store = await getStore();
   const allBookings = store.bookings;
   const passengerBookings = allBookings.filter((b) => b.bookingType !== "cargo");
   const cargoBookings = allBookings.filter((b) => b.bookingType === "cargo");
+  const activeDeliveries = (await listCargoDeliveries({ status: "active" })).length;
+  const lastMileReady = (await listLastMileDeliveries({ bucket: "ready" })).length;
 
   return {
     totalBookings: allBookings.length,
@@ -380,26 +382,27 @@ export function getDashboardStats() {
     agentBookings: allBookings.filter((b) => b.channel.startsWith("agent_")).length,
     cargoBookings: cargoBookings.length,
     todayCargo: cargoBookings.filter((b) => b.createdAt.startsWith(today)).length,
-    activeDeliveries: listCargoDeliveries({ status: "active" }).length,
-    lastMileReady: listLastMileDeliveries({ bucket: "ready" }).length,
+    activeDeliveries,
+    lastMileReady,
   };
 }
 
-export function getOpenCashSession(agentId: string) {
-  return getStore().cashSessions.find(
+export async function getOpenCashSession(agentId: string) {
+  const store = await getStore();
+  return store.cashSessions.find(
     (s) => s.agentId === agentId && s.status === "open"
   );
 }
 
-export function openCashSession(agentId: string, openingFloat: number) {
-  if (getOpenCashSession(agentId)) {
+export async function openCashSession(agentId: string, openingFloat: number) {
+  if (await getOpenCashSession(agentId)) {
     return { error: "You already have an open cash session.", status: 409 as const };
   }
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     s.cashSessions.push({
       id,
       agentId,
@@ -413,13 +416,13 @@ export function openCashSession(agentId: string, openingFloat: number) {
   return { data: { id, openedAt: now, openingFloat, cashCollected: 0, status: "open" }, status: 201 as const };
 }
 
-export function closeCashSession(
+export async function closeCashSession(
   sessionId: string,
   agentId: string,
   actualCash: number,
   notes?: string
 ) {
-  const store = getStore();
+  const store = await getStore();
   const session = store.cashSessions.find((s) => s.id === sessionId);
   if (!session || session.agentId !== agentId) {
     return { error: "Session not found.", status: 404 as const };
@@ -432,7 +435,7 @@ export function closeCashSession(
   const discrepancy = actualCash - expected;
   const now = new Date().toISOString();
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     const cs = s.cashSessions.find((x) => x.id === sessionId)!;
     cs.status = "closed";
     cs.closedAt = now;
@@ -447,9 +450,10 @@ export function closeCashSession(
   };
 }
 
-export function getRoutes() {
-  ensureSeeded();
-  return getStore().routes.map((route) => ({
+export async function getRoutes() {
+  await ensureSeeded();
+  const store = await getStore();
+  return store.routes.map((route) => ({
     id: route.id,
     label: route.label,
     from: route.origin,
@@ -463,31 +467,34 @@ export function getRoutes() {
   }));
 }
 
-export function getTripById(tripId: string) {
-  ensureSeeded();
-  return getStore().trips.find((t) => t.id === tripId) ?? null;
+export async function getTripById(tripId: string) {
+  await ensureSeeded();
+  const store = await getStore();
+  return store.trips.find((t) => t.id === tripId) ?? null;
 }
 
-export function listTripsForRoute(routeId: string, date: string) {
-  ensureSeeded();
-  const store = getStore();
+export async function listTripsForRoute(routeId: string, date: string) {
+  await ensureSeeded();
+  const store = await getStore();
   const route = store.routes.find((r) => r.id === routeId);
   if (!route) return { error: "Route not found.", status: 404 as const };
 
   const departures = store.departures.filter((d) => d.routeId === routeId);
-  const trips = departures.map((dep) => {
-    const trip = getOrCreateTrip(routeId, date, dep.departureTime);
-    const bookedSeats = getBookedSeats(trip.id);
-    return {
-      tripId: trip.id,
-      departureTime: dep.departureTime,
-      seatsAvailable: trip.seatCapacity - bookedSeats.length,
-      seatCapacity: trip.seatCapacity,
-      cargoAvailableKg: getCargoAvailableKg(trip.id),
-      cargoCapacityKg: trip.cargoCapacityKg ?? CARGO_CAPACITY_KG,
-      status: trip.status,
-    };
-  });
+  const trips = await Promise.all(
+    departures.map(async (dep) => {
+      const trip = await getOrCreateTrip(routeId, date, dep.departureTime);
+      const bookedSeats = await getBookedSeats(trip.id);
+      return {
+        tripId: trip.id,
+        departureTime: dep.departureTime,
+        seatsAvailable: trip.seatCapacity - bookedSeats.length,
+        seatCapacity: trip.seatCapacity,
+        cargoAvailableKg: await getCargoAvailableKg(trip.id),
+        cargoCapacityKg: trip.cargoCapacityKg ?? CARGO_CAPACITY_KG,
+        status: trip.status,
+      };
+    })
+  );
 
   return {
     data: { routeId, date, trips },
@@ -495,9 +502,9 @@ export function listTripsForRoute(routeId: string, date: string) {
   };
 }
 
-export function getCargoBookedKg(tripId: string): number {
-  ensureSeeded();
-  const store = getStore();
+export async function getCargoBookedKg(tripId: string): Promise<number> {
+  await ensureSeeded();
+  const store = await getStore();
   const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
   let total = 0;
@@ -510,15 +517,15 @@ export function getCargoBookedKg(tripId: string): number {
   return total;
 }
 
-export function getCargoAvailableKg(tripId: string): number {
-  const trip = getTripById(tripId);
+export async function getCargoAvailableKg(tripId: string): Promise<number> {
+  const trip = await getTripById(tripId);
   if (!trip) return 0;
-  return (trip.cargoCapacityKg ?? CARGO_CAPACITY_KG) - getCargoBookedKg(tripId);
+  return (trip.cargoCapacityKg ?? CARGO_CAPACITY_KG) - (await getCargoBookedKg(tripId));
 }
 
-export function getBookingByReference(reference: string) {
-  ensureSeeded();
-  const store = getStore();
+export async function getBookingByReference(reference: string) {
+  await ensureSeeded();
+  const store = await getStore();
   const booking = store.bookings.find((b) => b.reference === reference);
   if (!booking) return { error: "Booking not found.", status: 404 as const };
 
@@ -568,7 +575,7 @@ export function getBookingByReference(reference: string) {
         : undefined,
       deliveryMessages:
         booking.bookingType === "cargo"
-          ? getDeliveryMessagesForBooking(booking.id)
+          ? await getDeliveryMessagesForBooking(booking.id)
           : undefined,
       farePerUnit: booking.farePerUnit,
       total: booking.totalAmount,
@@ -588,8 +595,8 @@ export function getBookingByReference(reference: string) {
 }
 
 export async function processStkPayment(bookingId: string) {
-  ensureSeeded();
-  const store = getStore();
+  await ensureSeeded();
+  const store = await getStore();
   const booking = store.bookings.find((b) => b.id === bookingId);
   if (!booking) return { error: "Booking not found.", status: 404 as const };
   if (booking.status === "paid") return { error: "Booking already paid.", status: 409 as const };
@@ -626,13 +633,13 @@ export async function processStkPayment(bookingId: string) {
   }
 
   if (stkResult.mode === "demo") {
-    return completePayment(bookingId, "mpesa", { isDemo: true });
+    return await completePayment(bookingId, "mpesa", { isDemo: true });
   }
 
   const now = new Date().toISOString();
   const paymentId = crypto.randomUUID();
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     s.payments.push({
       id: paymentId,
       bookingId,
@@ -647,7 +654,7 @@ export async function processStkPayment(bookingId: string) {
     });
   });
 
-  logAudit("payment", paymentId, "stk_initiated", "system", undefined, {
+  await logAudit("payment", paymentId, "stk_initiated", "system", undefined, {
     checkoutRequestId: stkResult.checkoutRequestId,
   });
 
@@ -663,17 +670,17 @@ export async function processStkPayment(bookingId: string) {
   };
 }
 
-export function handleMpesaCallback(body: MpesaCallbackBody) {
+export async function handleMpesaCallback(body: MpesaCallbackBody) {
   const parsed = parseMpesaCallback(body);
   if (!parsed) return { error: "Invalid callback payload.", status: 400 as const };
 
-  ensureSeeded();
-  const store = getStore();
+  await ensureSeeded();
+  const store = await getStore();
   const payment = store.payments.find(
     (p) => p.mpesaCheckoutId === parsed.checkoutRequestId && p.method === "mpesa"
   );
 
-  logAudit("payment", payment?.id ?? parsed.checkoutRequestId, "mpesa_callback", "webhook", undefined, body);
+  await logAudit("payment", payment?.id ?? parsed.checkoutRequestId, "mpesa_callback", "webhook", undefined, body);
 
   if (!payment) {
     return { error: "Payment not found for checkout request.", status: 404 as const };
@@ -684,7 +691,7 @@ export function handleMpesaCallback(body: MpesaCallbackBody) {
   }
 
   if (!parsed.success) {
-    mutateStore((s) => {
+    await mutateStore((s) => {
       const p = s.payments.find((x) => x.id === payment.id)!;
       p.status = "failed";
       p.failureReason = parsed.resultDesc;
@@ -692,16 +699,16 @@ export function handleMpesaCallback(body: MpesaCallbackBody) {
     return { data: { status: "failed", reason: parsed.resultDesc }, status: 200 as const };
   }
 
-  return completePayment(payment.bookingId, "mpesa", {
+  return await completePayment(payment.bookingId, "mpesa", {
     isDemo: false,
     mpesaReceipt: parsed.mpesaReceipt,
     existingPaymentId: payment.id,
   });
 }
 
-export function getPaymentStatus(bookingId: string) {
-  ensureSeeded();
-  const store = getStore();
+export async function getPaymentStatus(bookingId: string) {
+  await ensureSeeded();
+  const store = await getStore();
   const booking = store.bookings.find((b) => b.id === bookingId);
   if (!booking) return { error: "Booking not found.", status: 404 as const };
 
@@ -721,12 +728,12 @@ export function getPaymentStatus(bookingId: string) {
   };
 }
 
-export function createCargoBooking(input: CreateCargoBookingInput) {
+export async function createCargoBooking(input: CreateCargoBookingInput) {
   const error = validateCargoBookingInput(input);
   if (error) return { error, status: 400 as const };
 
-  const trip = getOrCreateTrip(input.routeId, input.date, input.time);
-  const available = getCargoAvailableKg(trip.id);
+  const trip = await getOrCreateTrip(input.routeId, input.date, input.time);
+  const available = await getCargoAvailableKg(trip.id);
   if (input.weightKg > available) {
     return {
       error: `Only ${available.toFixed(1)} kg cargo capacity remaining on this departure.`,
@@ -735,7 +742,7 @@ export function createCargoBooking(input: CreateCargoBookingInput) {
   }
 
   const now = new Date().toISOString();
-  const customerId = upsertCustomer(input.senderName, input.senderPhone);
+  const customerId = await upsertCustomer(input.senderName, input.senderPhone);
   const bookingId = crypto.randomUUID();
   const reference = generateCargoReference();
   const total = calculateCargoFare(input.weightKg, {
@@ -779,12 +786,12 @@ export function createCargoBooking(input: CreateCargoBookingInput) {
     deliveryAddress: input.lastMileDelivery ? input.deliveryAddress?.trim() : undefined,
   };
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     s.bookings.push(booking);
     s.cargoDetails.push(cargoDetails);
   });
 
-  logAudit("booking", bookingId, "cargo_created", input.agentId ? "agent" : "customer", input.agentId, {
+  await logAudit("booking", bookingId, "cargo_created", input.agentId ? "agent" : "customer", input.agentId, {
     reference,
     weightKg: input.weightKg,
     lastMileDelivery: input.lastMileDelivery ?? false,
@@ -802,9 +809,9 @@ export function createCargoBooking(input: CreateCargoBookingInput) {
   };
 }
 
-export function listCustomers() {
-  ensureSeeded();
-  const store = getStore();
+export async function listCustomers() {
+  await ensureSeeded();
+  const store = await getStore();
 
   return store.customers
     .map((customer) => {
@@ -819,9 +826,9 @@ export function listCustomers() {
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export function getReconciliationReport(date: string) {
-  ensureSeeded();
-  const store = getStore();
+export async function getReconciliationReport(date: string) {
+  await ensureSeeded();
+  const store = await getStore();
 
   const dayPayments = store.payments.filter(
     (p) => p.createdAt.startsWith(date) || (p.completedAt?.startsWith(date) ?? false)
@@ -910,9 +917,9 @@ export function getReconciliationReport(date: string) {
   };
 }
 
-export function refundBooking(reference: string, agentId?: string) {
-  ensureSeeded();
-  const store = getStore();
+export async function refundBooking(reference: string, agentId?: string) {
+  await ensureSeeded();
+  const store = await getStore();
   const booking = store.bookings.find((b) => b.reference === reference);
   if (!booking) return { error: "Booking not found.", status: 404 as const };
   if (booking.status === "refunded") {
@@ -925,7 +932,7 @@ export function refundBooking(reference: string, agentId?: string) {
   const now = new Date().toISOString();
   const priorStatus = booking.status;
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     const bk = s.bookings.find((b) => b.id === booking.id)!;
     bk.status = priorStatus === "paid" ? "refunded" : "cancelled";
     bk.cancelledAt = now;
@@ -938,7 +945,7 @@ export function refundBooking(reference: string, agentId?: string) {
     if (payment) payment.status = "reversed";
   });
 
-  logAudit("booking", booking.id, "refunded", agentId ? "agent" : "system", agentId, {
+  await logAudit("booking", booking.id, "refunded", agentId ? "agent" : "system", agentId, {
     reference,
     priorStatus,
   });

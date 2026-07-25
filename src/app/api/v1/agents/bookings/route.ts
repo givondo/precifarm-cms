@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = createBooking({
+  const result = await createBooking({
     ...body,
     channel: body.channel ?? "agent_walkin",
     agentId: agent.id,
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   const paymentMethod = body.paymentMethod ?? "cash";
 
   if (paymentMethod === "cash") {
-    const session = getOpenCashSession(agent.id);
+    const session = await getOpenCashSession(agent.id);
     if (!session) {
       return NextResponse.json(
         {
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const payment = completePayment(result.data!.bookingId, "cash", {
+    const payment = await completePayment(result.data!.bookingId, "cash", {
       agentId: agent.id,
       cashSessionId: session.id,
     });

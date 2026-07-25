@@ -18,8 +18,8 @@ export async function GET(
     );
   }
 
-  const trip = getOrCreateTrip(routeId, date, time);
-  const bookedSeats = getBookedSeats(trip.id);
+  const trip = await getOrCreateTrip(routeId, date, time);
+  const bookedSeats = await getBookedSeats(trip.id);
 
   return NextResponse.json({
     data: {

@@ -9,5 +9,5 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const city = searchParams.get("city") ?? undefined;
 
-  return apiOk(listRiders(city));
+  return apiOk(await listRiders(city));
 }

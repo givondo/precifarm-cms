@@ -10,7 +10,7 @@ export async function POST(
   if (!auth.ok) return auth.response;
 
   const { reference } = await params;
-  const result = refundBooking(reference, auth.agent.id);
+  const result = await refundBooking(reference, auth.agent.id);
 
   if ("error" in result && result.error) {
     return apiError("REFUND_ERROR", result.error, result.status);

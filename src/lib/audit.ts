@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { mutateStore } from "@/db";
 
-export function logAudit(
+export async function logAudit(
   entityType: string,
   entityId: string,
   action: string,
@@ -9,7 +9,7 @@ export function logAudit(
   actorId?: string,
   payload?: unknown
 ) {
-  mutateStore((s) => {
+  await mutateStore((s) => {
     s.auditEvents.push({
       id: crypto.randomUUID(),
       entityType,

@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = createBooking({ ...body, channel: body.channel ?? "web" });
+  const result = await createBooking({ ...body, channel: body.channel ?? "web" });
   if ("error" in result && result.error) {
     return NextResponse.json(
       { error: { code: "BOOKING_ERROR", message: result.error } },

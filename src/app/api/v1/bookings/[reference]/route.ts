@@ -6,7 +6,7 @@ export async function GET(
   { params }: { params: Promise<{ reference: string }> }
 ) {
   const { reference } = await params;
-  const result = getBookingByReference(reference);
+  const result = await getBookingByReference(reference);
 
   if ("error" in result && result.error) {
     return NextResponse.json(

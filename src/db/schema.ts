@@ -10,6 +10,7 @@ import {
   time,
   decimal,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const routes = pgTable("routes", {
@@ -183,4 +184,11 @@ export const auditEvents = pgTable("audit_events", {
   actorId: uuid("actor_id"),
   payload: text("payload"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Single-row JSON document store — used when DATABASE_URL points at Supabase/PostgreSQL. */
+export const appStore = pgTable("app_store", {
+  id: varchar("id", { length: 32 }).primaryKey(),
+  data: jsonb("data").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

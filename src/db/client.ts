@@ -14,7 +14,12 @@ export function getDb() {
     throw new Error("DATABASE_URL is not set. Using JSON file store.");
   }
   if (!client) {
-    client = postgres(process.env.DATABASE_URL, { max: 10 });
+    // Supabase pooler (port 6543) requires prepare: false
+    client = postgres(process.env.DATABASE_URL, {
+      max: 10,
+      prepare: false,
+      ssl: process.env.DATABASE_URL.includes("supabase") ? "require" : undefined,
+    });
     db = drizzle(client, { schema });
   }
   return db!;

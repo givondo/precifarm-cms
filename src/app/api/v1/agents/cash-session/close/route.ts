@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { message: "sessionId and actualCash required." } }, { status: 400 });
   }
 
-  const result = closeCashSession(sessionId, agent.id, actualCash, notes);
+  const result = await closeCashSession(sessionId, agent.id, actualCash, notes);
   if ("error" in result && result.error) {
     return NextResponse.json({ error: { message: result.error } }, { status: result.status });
   }

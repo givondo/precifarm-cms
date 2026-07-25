@@ -71,6 +71,7 @@ export function envSummary() {
     hasShortcode: !!mpesaEnv.shortcode,
     callbackHost: mpesaEnv.callbackUrl ? safeHost(mpesaEnv.callbackUrl) : null,
     databaseConfigured: !!appEnv.databaseUrl,
+    storageBackend: appEnv.databaseUrl ? "postgresql" : "json-file",
   };
 }
 

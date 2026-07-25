@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const bucket = searchParams.get("bucket");
   const search = searchParams.get("q") ?? undefined;
 
-  const data = listLastMileDeliveries({
+  const data = await listLastMileDeliveries({
     bucket:
       bucket === "ready" ||
       bucket === "active" ||

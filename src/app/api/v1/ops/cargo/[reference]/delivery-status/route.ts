@@ -15,7 +15,7 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   const { reference } = await params;
-  const result = getBookingByReference(reference);
+  const result = await getBookingByReference(reference);
   if ("error" in result && result.error) {
     return apiError("NOT_FOUND", result.error, result.status);
   }
@@ -26,7 +26,7 @@ export async function GET(
 
   return apiOk({
     ...result.data,
-    deliveryMessages: getDeliveryMessagesForBooking(result.data.id),
+    deliveryMessages: await getDeliveryMessagesForBooking(result.data.id),
   });
 }
 
@@ -45,7 +45,7 @@ export async function POST(
     // Advance to next stage when body is empty.
   }
 
-  const result = updateCargoDeliveryStatus(reference, auth.agent.id, body.stage);
+  const result = await updateCargoDeliveryStatus(reference, auth.agent.id, body.stage);
   if ("error" in result && result.error) {
     return apiError("DELIVERY_ERROR", result.error, result.status);
   }

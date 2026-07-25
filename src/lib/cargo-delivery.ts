@@ -38,7 +38,7 @@ function resolvePaidCargoShipment(
   return { booking, trip, route, cargo };
 }
 
-function recordDeliveryMessage(params: {
+async function recordDeliveryMessage(params: {
   bookingId: string;
   reference: string;
   stage: CargoDeliveryStatus;
@@ -48,7 +48,7 @@ function recordDeliveryMessage(params: {
   agentId?: string;
 }) {
   const now = new Date().toISOString();
-  mutateStore((s) => {
+  await mutateStore((s) => {
     s.deliveryMessages.push({
       id: crypto.randomUUID(),
       bookingId: params.bookingId,
@@ -63,13 +63,13 @@ function recordDeliveryMessage(params: {
   });
 }
 
-function notifyCargoDeliveryStage(
+async function notifyCargoDeliveryStage(
   bookingId: string,
   stage: CargoDeliveryStatus,
   agentId?: string,
   options?: { skipSender?: boolean; skipReceiver?: boolean }
 ) {
-  const store = getStore();
+  const store = await getStore();
   const booking = store.bookings.find((b) => b.id === bookingId);
   const cargo = store.cargoDetails.find((c) => c.bookingId === bookingId);
   if (!booking || !cargo) return;
@@ -99,7 +99,7 @@ function notifyCargoDeliveryStage(
 
   if (!options?.skipSender) {
     const body = formatDeliveryStageSms({ ...smsParams, recipient: "sender" });
-    recordDeliveryMessage({
+    await recordDeliveryMessage({
       bookingId,
       reference: booking.reference,
       stage,
@@ -120,7 +120,7 @@ function notifyCargoDeliveryStage(
 
   if (!options?.skipReceiver) {
     const body = formatDeliveryStageSms({ ...smsParams, recipient: "receiver" });
-    recordDeliveryMessage({
+    await recordDeliveryMessage({
       bookingId,
       reference: booking.reference,
       stage,
@@ -140,14 +140,14 @@ function notifyCargoDeliveryStage(
   }
 }
 
-export function onCargoPaymentConfirmed(params: {
+export async function onCargoPaymentConfirmed(params: {
   bookingId: string;
   reference: string;
   smsBody: string;
   senderPhone: string;
   agentId?: string;
 }) {
-  recordDeliveryMessage({
+  await recordDeliveryMessage({
     bookingId: params.bookingId,
     reference: params.reference,
     stage: "confirmed",
@@ -156,17 +156,22 @@ export function onCargoPaymentConfirmed(params: {
     body: params.smsBody,
     agentId: params.agentId,
   });
-  notifyCargoDeliveryStage(params.bookingId, "confirmed", params.agentId, {
+  await notifyCargoDeliveryStage(params.bookingId, "confirmed", params.agentId, {
     skipSender: true,
   });
 }
 
-export function getDeliveryMessagesForBooking(bookingId: string) {
-  ensureSeeded();
-  const messages = getStore().deliveryMessages ?? [];
+function getDeliveryMessagesFromStore(store: DataStore, bookingId: string) {
+  const messages = store.deliveryMessages ?? [];
   return messages
     .filter((m) => m.bookingId === bookingId)
     .sort((a, b) => a.sentAt.localeCompare(b.sentAt));
+}
+
+export async function getDeliveryMessagesForBooking(bookingId: string) {
+  await ensureSeeded();
+  const store = await getStore();
+  return getDeliveryMessagesFromStore(store, bookingId);
 }
 
 function syncRiderAvailabilityInStore(store: DataStore, riderId?: string) {
@@ -204,7 +209,7 @@ function buildCargoDeliveryRow(
   store: DataStore
 ) {
   const { booking, trip, route, cargo } = resolved;
-  const messages = getDeliveryMessagesForBooking(booking.id);
+  const messages = getDeliveryMessagesFromStore(store, booking.id);
   const deliveryStatus = (cargo.deliveryStatus ?? "confirmed") as CargoDeliveryStatus;
   const nextStage = getNextDeliveryStage(deliveryStatus, cargo.lastMileDelivery);
   const rider = cargo.riderId
@@ -247,12 +252,12 @@ function buildCargoDeliveryRow(
   };
 }
 
-export function listCargoDeliveries(filters?: {
+export async function listCargoDeliveries(filters?: {
   status?: "active" | "completed";
   search?: string;
 }) {
-  ensureSeeded();
-  const store = getStore();
+  await ensureSeeded();
+  const store = await getStore();
 
   return store.bookings
     .flatMap((booking) => {
@@ -292,13 +297,13 @@ export function listCargoDeliveries(filters?: {
     });
 }
 
-export function updateCargoDeliveryStatus(
+export async function updateCargoDeliveryStatus(
   reference: string,
   agentId: string,
   targetStage?: CargoDeliveryStatus
 ) {
-  ensureSeeded();
-  const store = getStore();
+  await ensureSeeded();
+  const store = await getStore();
   const booking = store.bookings.find((b) => b.reference === reference);
   if (!booking || booking.bookingType !== "cargo") {
     return { error: "Cargo booking not found.", status: 404 as const };
@@ -337,7 +342,7 @@ export function updateCargoDeliveryStatus(
 
   const now = new Date().toISOString();
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     const c = s.cargoDetails.find((x) => x.bookingId === booking.id)!;
     c.deliveryStatus = stage;
     c.deliveryStatusUpdatedAt = now;
@@ -352,16 +357,18 @@ export function updateCargoDeliveryStatus(
     }
   });
 
-  notifyCargoDeliveryStage(booking.id, stage, agentId);
+  await notifyCargoDeliveryStage(booking.id, stage, agentId);
 
-  logAudit("cargo_delivery", booking.id, "stage_updated", "agent", agentId, {
+  await logAudit("cargo_delivery", booking.id, "stage_updated", "agent", agentId, {
     reference,
     from: current,
     to: stage,
   });
 
-  const updated = getStore().cargoDetails.find((c) => c.bookingId === booking.id)!;
+  const updatedStore = await getStore();
+  const updated = updatedStore.cargoDetails.find((c) => c.bookingId === booking.id)!;
   const nextStage = getNextDeliveryStage(stage, updated.lastMileDelivery);
+  const messages = await getDeliveryMessagesForBooking(booking.id);
 
   return {
     data: {
@@ -370,16 +377,16 @@ export function updateCargoDeliveryStatus(
       deliveryStatusLabel: getDeliveryStageLabel(stage),
       nextStage,
       nextStageLabel: getNextStageLabel(nextStage),
-      messages: getDeliveryMessagesForBooking(booking.id),
+      messages,
       message: `Client notified at "${stage}" stage (SMS sent to sender and receiver).`,
     },
     status: 200 as const,
   };
 }
 
-export function listRiders(city?: string) {
-  ensureSeeded();
-  const store = getStore();
+export async function listRiders(city?: string) {
+  await ensureSeeded();
+  const store = await getStore();
   return (store.riders ?? [])
     .filter((r) => r.isActive)
     .filter((r) => !city || r.city.toLowerCase() === city.toLowerCase())
@@ -392,12 +399,12 @@ export function listRiders(city?: string) {
     });
 }
 
-export function listLastMileDeliveries(filters?: {
+export async function listLastMileDeliveries(filters?: {
   bucket?: "ready" | "active" | "upcoming" | "completed";
   search?: string;
 }) {
-  ensureSeeded();
-  const store = getStore();
+  await ensureSeeded();
+  const store = await getStore();
 
   return store.bookings
     .flatMap((booking) => {
@@ -467,14 +474,14 @@ export function listLastMileDeliveries(filters?: {
     });
 }
 
-export function assignRiderToCargo(
+export async function assignRiderToCargo(
   reference: string,
   riderId: string,
   agentId: string,
   options?: { dispatch?: boolean }
 ) {
-  ensureSeeded();
-  const store = getStore();
+  await ensureSeeded();
+  const store = await getStore();
   const booking = store.bookings.find((b) => b.reference === reference);
   if (!booking || booking.bookingType !== "cargo") {
     return { error: "Cargo booking not found.", status: 404 as const };
@@ -517,7 +524,7 @@ export function assignRiderToCargo(
   const now = new Date().toISOString();
   const previousRiderId = cargo.riderId;
 
-  mutateStore((s) => {
+  await mutateStore((s) => {
     const c = s.cargoDetails.find((x) => x.bookingId === booking.id)!;
     if (previousRiderId && previousRiderId !== riderId) {
       syncRiderAvailabilityInStore(s, previousRiderId);
@@ -531,7 +538,7 @@ export function assignRiderToCargo(
     }
   });
 
-  logAudit("cargo_delivery", booking.id, "rider_assigned", "agent", agentId, {
+  await logAudit("cargo_delivery", booking.id, "rider_assigned", "agent", agentId, {
     reference,
     riderId,
     riderName: rider.name,
@@ -547,9 +554,10 @@ export function assignRiderToCargo(
     return updateCargoDeliveryStatus(reference, agentId, "out_for_delivery");
   }
 
+  const refreshedStore = await getStore();
   const updatedRider = mapRiderRow(
-    (getStore().riders ?? []).find((r) => r.id === riderId)!,
-    getStore()
+    (refreshedStore.riders ?? []).find((r) => r.id === riderId)!,
+    refreshedStore
   );
 
   return {
@@ -563,7 +571,9 @@ export function assignRiderToCargo(
   };
 }
 
-export type CargoDeliveryRow = ReturnType<typeof listCargoDeliveries>[number];
-export type LastMileDeliveryRow = ReturnType<typeof listLastMileDeliveries>[number];
-export type RiderSummary = ReturnType<typeof listRiders>[number];
-export type DeliveryMessageRecord = ReturnType<typeof getDeliveryMessagesForBooking>[number];
+export type CargoDeliveryRow = Awaited<ReturnType<typeof listCargoDeliveries>>[number];
+export type LastMileDeliveryRow = Awaited<ReturnType<typeof listLastMileDeliveries>>[number];
+export type RiderSummary = Awaited<ReturnType<typeof listRiders>>[number];
+export type DeliveryMessageRecord = Awaited<
+  ReturnType<typeof getDeliveryMessagesForBooking>
+>[number];

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Email and password required." }, { status: 400 });
   }
 
-  const agent = authenticateAgent(email, password);
+  const agent = await authenticateAgent(email, password);
   if (!agent) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
