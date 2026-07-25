@@ -4,7 +4,9 @@
 
 Repository: `givondo/precifarm-cms` (after push)
 
-## Vercel (recommended)
+## Vercel (recommended for Next.js)
+
+> **Note:** If Vercel billing is inactive, use Netlify below or reactivate at vercel.com → Settings → Billing.
 
 1. Import `givondo/precifarm-cms` at [vercel.com/new](https://vercel.com/new)
 2. Set **Root Directory** to repo root
@@ -25,6 +27,13 @@ Repository: `givondo/precifarm-cms` (after push)
 | `MPESA_ENVIRONMENT` | `production` |
 
 Health check: `GET /api/v1/health`
+
+## Netlify (alternative — precifarm.com already uses Netlify)
+
+1. [app.netlify.com](https://app.netlify.com) → **Add new site** → **Import from Git** → `givondo/precifarm-cms`
+2. Build: `npm run build`, publish handled by `@netlify/plugin-nextjs`
+3. Site settings → Environment variables → add M-Pesa vars from `.env.example`
+4. Optional domain: `cms.precifarm.co.ke` or subdomain under precifarm.com
 
 ## Website connection
 
