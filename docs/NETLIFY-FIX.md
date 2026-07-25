@@ -44,12 +44,23 @@ Use this only as a last resort — it disables the legacy plugin so Netlify’s 
 
 | Field | Value |
 |-------|--------|
-| Runtime | Next.js |
+| **Runtime** | **Remove** (click red Remove) — the repo plugin replaces this |
 | Build command | `npm run build:netlify` |
 | Publish directory | **empty** |
 | Node | 20 |
 
+**Important:** You must have **either** Runtime **or** the repo plugin — **not both**.  
+If Runtime = Next.js stays on AND plugin is in `netlify.toml`, build may fail.  
+If Runtime is on with NO plugin, deploy succeeds but every page shows **Netlify 404** (your current issue).
+
 Then: **Deploys** → **Trigger deploy** → **Clear cache and deploy site**
+
+### Test URLs after deploy
+
+- `https://YOUR-SITE.netlify.app/login` — agent login page
+- `https://YOUR-SITE.netlify.app/api/v1/health` — JSON health check
+
+Root `/` redirects to `/dashboard` (requires login).
 
 ---
 
