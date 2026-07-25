@@ -1,41 +1,66 @@
-# Netlify deploy failed — @netlify/plugin-nextjs
+# Netlify — where to find settings (2026 UI)
 
-## Fix in 2 minutes
+Netlify renamed/moved things. There is often **no top-level “Plugins” menu**.
 
-### Step 1 — Remove duplicate plugin (most common cause)
+## Where to look
 
-1. Netlify → **precifarm-cms** → **Project configuration** → **Plugins**
-2. If **Next.js Runtime** or **@netlify/plugin-nextjs** appears with **Origin: UI**, click it → **Remove** / **Uninstall**
-3. The repo now installs the plugin from `package.json` — having both causes this exact error
+### A) Next.js Runtime (most important)
 
-### Step 2 — Build settings
+1. Open your site **precifarm-cms**
+2. Left sidebar → **Project configuration**
+3. **Build & deploy** → **Continuous deployment** → **Build settings**
+4. Scroll to **Runtime** — you should see **Next.js**
+5. **Keep this** — do not remove unless Netlify support tells you to
+
+This *is* the Next.js integration (not a separate “Plugins” page).
+
+### B) Build plugins (if your account has it)
+
+Same path: **Project configuration** → **Build & deploy** → **Build plugins**
+
+Or try direct URL (replace `YOUR-SITE-NAME`):
+
+```
+https://app.netlify.com/sites/YOUR-SITE-NAME/configuration/plugins
+```
+
+If that 404s, your team uses Runtime-only (path A) — that is normal.
+
+### C) Environment variables
+
+**Project configuration** → **Environment variables**
+
+Add only if builds still fail with duplicate plugin errors:
+
+| Key | Value |
+|-----|------|
+| `NETLIFY_NEXT_PLUGIN_SKIP` | `true` |
+
+Use this only as a last resort — it disables the legacy plugin so Netlify’s OpenNext runtime handles the build.
+
+---
+
+## Correct build settings (precifarm-cms)
 
 | Field | Value |
 |-------|--------|
+| Runtime | Next.js |
 | Build command | `npm run build:netlify` |
-| Publish directory | **Leave empty** |
+| Publish directory | **empty** |
 | Node | 20 |
 
-### Step 3 — Redeploy
-
-**Deploys** → **Trigger deploy** → **Clear cache and deploy site**
+Then: **Deploys** → **Trigger deploy** → **Clear cache and deploy site**
 
 ---
 
-## If it still fails
+## Repo change
 
-Open the failed deploy → expand the **Plugin** section in the log. Common messages:
+We **removed** `@netlify/plugin-nextjs` from `netlify.toml` and `package.json` so it does not fight the built-in **Next.js Runtime** in your build settings.
 
-| Log says | Fix |
-|----------|-----|
-| `does not contain a Next.js production build` | Build command must be `npm run build:netlify` (not `npm run build`) |
-| `wrong publish directory` | Publish directory must be **empty** in Netlify UI |
-| Plugin version outdated | Pull latest `main` (pins `@netlify/plugin-nextjs@5.15.12`) |
-
-Paste the full red error block from the deploy log if you need help.
+Pull latest `main` or wait for Netlify to auto-deploy commit `7d9dc23` or newer.
 
 ---
 
-## CMS on Netlify limitation
+## Still failing?
 
-The CMS uses a file-based store (`data/`). On Netlify serverless, **bookings do not persist** across deploys unless you add `DATABASE_URL` (PostgreSQL). For production, consider **Railway** or **Render** for the CMS long term; the website can stay on Netlify.
+Open the failed deploy → **Deploy log** → expand the error → copy the **full red text** (not just “plugin failed”) and share it.
