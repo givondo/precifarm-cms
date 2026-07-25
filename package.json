@@ -6,6 +6,7 @@
     "dev": "next dev --port 3002 --turbopack",
     "dev:clean": "node scripts/dev-clean.mjs",
     "build": "node scripts/ensure-dev-stopped.mjs && next build",
+    "build:netlify": "next build",
     "start": "next start --port 3002",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
