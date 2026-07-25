@@ -46,7 +46,7 @@ Use this only as a last resort — it disables the legacy plugin so Netlify’s 
 |-------|--------|
 | **Runtime** | **Remove** (click red Remove) — the repo plugin replaces this |
 | Build command | `npm run build:netlify` |
-| Publish directory | **empty** |
+| Publish directory | `.next` (set in `netlify.toml`; leave UI blank so toml wins) |
 | Node | 20 |
 
 **Important:** You must have **either** Runtime **or** the repo plugin — **not both**.  
