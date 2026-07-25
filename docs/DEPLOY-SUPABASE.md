@@ -23,31 +23,23 @@ Your project (from dashboard):
 
 In Supabase: **Project Settings → Database → Connection string → URI**
 
-Use the **Transaction pooler** string (port **6543**) for serverless Netlify:
-
-```
-postgresql://postgres.wvqkhvimsxgyxryehnom:[YOUR-PASSWORD]@aws-0-eu-west-1.pooler.supabase.com:6543/postgres
-```
-
-Replace `[YOUR-PASSWORD]` with the database password you set when creating the project.
+Use the **Transaction pooler** string (port **6543**) for serverless Netlify. Copy the URI from Supabase → **Connect** (replace `[YOUR-PASSWORD]` with your database password, URL-encoded).
 
 ## 2. Push schema (one time, from your PC)
 
-In the CMS folder, add to `.env`:
+Add to `.env`:
 
 ```env
-DATABASE_URL=postgresql://postgres.wvqkhvimsxgyxryehnom:YOUR_PASSWORD@aws-0-eu-west-1.pooler.supabase.com:6543/postgres
+SUPABASE_DB_PASSWORD="your-database-password"
 ```
 
 Then run:
 
 ```bash
-npm run db:push
-npm run db:seed
+npm run supabase:setup
 ```
 
-- `db:push` creates all tables including `app_store` (JSON document for bookings/data).
-- `db:seed` inserts default route, departures, and demo agents if empty.
+This pushes the schema, seeds demo data, and writes the encoded `DATABASE_URL` to `.env` locally.
 
 ## 3. Netlify environment variables
 
@@ -55,7 +47,7 @@ In **Netlify → Site → Environment variables**, add:
 
 | Variable | Value |
 |----------|--------|
-| `DATABASE_URL` | Same Supabase pooler URI as `.env` — **must be URL-encoded** (e.g. `#` → `%23`). Copy from `.env` after `npm run supabase:setup`, do not paste the raw password. |
+| `DATABASE_URL` | Copy from local `.env` after `npm run supabase:setup`. **Scopes: Functions only** — do **not** include Builds (avoids Netlify secrets scan failures). |
 | `DEMO_PAYMENT` | `false` (for live M-Pesa) |
 | `MPESA_*` | Your Daraja credentials (see `.env.example`) |
 | `MPESA_CALLBACK_URL` | `https://YOUR-CMS-DOMAIN/api/v1/payments/mpesa/callback` |

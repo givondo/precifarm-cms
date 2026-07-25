@@ -4,6 +4,8 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Allow DATABASE_URL in server bundles; omit docs from secret pattern matching
+  SECRETS_SCAN_OMIT_PATHS = "docs/**,.next/**"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

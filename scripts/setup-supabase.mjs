@@ -143,6 +143,5 @@ Next steps:
 2. Redeploy CMS on Netlify
 3. Verify: GET /api/v1/health → "storageBackend": "postgresql"
 
-Pooler URL (for Netlify):
-${poolerUrl ?? "(see .env DATABASE_URL)"}
+Pooler URL written to .env — copy DATABASE_URL from there for Netlify (Functions scope only).
 `);
