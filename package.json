@@ -13,6 +13,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "npx tsx scripts/seed-postgres.ts",
+    "supabase:setup": "node scripts/setup-supabase.mjs",
     "test:mpesa-auth": "node scripts/test-mpesa-auth.mjs",
     "test:stk": "node scripts/test-stk.mjs",
     "tunnel:mpesa": "node scripts/start-mpesa-tunnel.mjs"

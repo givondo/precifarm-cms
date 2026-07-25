@@ -55,7 +55,7 @@ In **Netlify → Site → Environment variables**, add:
 
 | Variable | Value |
 |----------|--------|
-| `DATABASE_URL` | Same Supabase pooler URI as above |
+| `DATABASE_URL` | Same Supabase pooler URI as `.env` — **must be URL-encoded** (e.g. `#` → `%23`). Copy from `.env` after `npm run supabase:setup`, do not paste the raw password. |
 | `DEMO_PAYMENT` | `false` (for live M-Pesa) |
 | `MPESA_*` | Your Daraja credentials (see `.env.example`) |
 | `MPESA_CALLBACK_URL` | `https://YOUR-CMS-DOMAIN/api/v1/payments/mpesa/callback` |
