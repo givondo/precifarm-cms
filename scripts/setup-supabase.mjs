@@ -123,6 +123,18 @@ if (seed.status !== 0) {
   process.exit(seed.status ?? 1);
 }
 
+console.log("\nSeeding SEO / AISO content (entities, guides, Swahili)...");
+const seoSeed = spawnSync("npx", ["tsx", "scripts/seed-seo.ts"], {
+  cwd: root,
+  stdio: "inherit",
+  env: { ...process.env, DATABASE_URL: poolerUrl ?? directUrl },
+  shell: true,
+});
+
+if (seoSeed.status !== 0) {
+  console.warn("SEO seed failed — run npm run supabase:seo manually.");
+}
+
 // Write pooler URL to .env if we built it from password
 if (password && poolerUrl) {
   let envText = fs.existsSync(envPath) ? fs.readFileSync(envPath, "utf8") : "";

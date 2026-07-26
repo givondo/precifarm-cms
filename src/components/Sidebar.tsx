@@ -42,7 +42,10 @@ function buildNavSections(role: string): NavSection[] {
         { href: "/cash-session", label: "Cash session" },
         { href: "/reconciliation", label: "Reconciliation" },
         ...(role === "admin"
-          ? [{ href: "/analytics", label: "Analytics", hint: "North Star & funnels" }]
+          ? [
+              { href: "/analytics", label: "Analytics", hint: "North Star & funnels" },
+              { href: "/seo", label: "SEO / AISO", hint: "Content & knowledge graph" },
+            ]
           : []),
       ],
     },

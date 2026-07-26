@@ -1,0 +1,47 @@
+# Cloud Build — precifarm-cms → Cloud Run
+substitutions:
+  _AR_REGION: africa-south1
+  _REGION: europe-west1
+  _SERVICE: precifarm-cms
+  _AR_REPO: precifarm
+  _SITE_URL: https://precifarm.com
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms:$BUILD_ID
+      - -t
+      - ${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms:latest
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - --all-tags
+      - ${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms:$BUILD_ID
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --port=8080
+      - --memory=1Gi
+      - --min-instances=0
+      - --max-instances=10
+      - --set-secrets=DATABASE_URL=precifarm-database-url:latest,DEMO_PAYMENT=precifarm-demo-payment:latest,MPESA_CONSUMER_KEY=precifarm-mpesa-consumer-key:latest,MPESA_CONSUMER_SECRET=precifarm-mpesa-consumer-secret:latest,MPESA_PASSKEY=precifarm-mpesa-passkey:latest,MPESA_SHORTCODE=precifarm-mpesa-shortcode:latest,MPESA_CALLBACK_URL=precifarm-mpesa-callback-url:latest,MPESA_ENVIRONMENT=precifarm-mpesa-environment:latest
+      - --set-env-vars=NEXT_PUBLIC_SITE_URL=${_SITE_URL}
+
+images:
+  - ${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms:$BUILD_ID
+  - ${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

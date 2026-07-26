@@ -41,6 +41,22 @@ npm run supabase:setup
 
 This pushes the schema, seeds demo data, and writes the encoded `DATABASE_URL` to `.env` locally.
 
+### SEO / AISO (Phases 2–4)
+
+After the base setup, push SEO tables and seed content:
+
+```bash
+npm run supabase:seo
+```
+
+This runs `drizzle-kit push` (adds `seo_*` tables, locale column, competitor/citation tables), seeds entities + guides + Swahili FAQ, generates local page drafts, and loads sample competitor snapshots.
+
+Also set in CMS `.env` (and production env):
+
+```env
+NEXT_PUBLIC_SITE_URL=https://precifarm.com
+```
+
 ## 3. Netlify environment variables
 
 In **Netlify → Site → Environment variables**, add:

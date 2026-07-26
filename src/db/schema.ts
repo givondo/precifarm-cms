@@ -301,3 +301,172 @@ export const contactSubmissions = pgTable("contact_submissions", {
   environment: varchar("environment", { length: 16 }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** SEO / AISO knowledge graph nodes (Phase 2). */
+export const seoEntities = pgTable("seo_entities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
+  type: varchar("type", { length: 64 }).notNull(),
+  name: varchar("name", { length: 256 }).notNull(),
+  description: text("description").notNull(),
+  aliases: jsonb("aliases").notNull().default([]),
+  metadata: jsonb("metadata").notNull().default({}),
+  url: varchar("url", { length: 512 }),
+  published: boolean("published").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Directed edges in the SEO knowledge graph. */
+export const seoEntityRelations = pgTable(
+  "seo_entity_relations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fromEntityId: uuid("from_entity_id")
+      .notNull()
+      .references(() => seoEntities.id, { onDelete: "cascade" }),
+    toEntityId: uuid("to_entity_id")
+      .notNull()
+      .references(() => seoEntities.id, { onDelete: "cascade" }),
+    relationType: varchar("relation_type", { length: 64 }).notNull().default("related"),
+    weight: decimal("weight", { precision: 5, scale: 2 }).notNull().default("1"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("seo_entity_relation_unique").on(t.fromEntityId, t.toEntityId, t.relationType),
+  ]
+);
+
+/** CMS-managed SEO content: guides, FAQs, articles, how-tos, local pages. */
+export const seoContent = pgTable(
+  "seo_content",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: varchar("slug", { length: 160 }).notNull(),
+    locale: varchar("locale", { length: 16 }).notNull().default("en-KE"),
+    title: varchar("title", { length: 256 }).notNull(),
+    description: text("description").notNull(),
+    bodyMd: text("body_md"),
+    contentType: varchar("content_type", { length: 32 }).notNull(),
+    entityIds: jsonb("entity_ids").notNull().default([]),
+    schemaJson: jsonb("schema_json"),
+    aisoBlocks: jsonb("aiso_blocks").notNull().default([]),
+    status: varchar("status", { length: 16 }).notNull().default("draft"),
+    authorName: varchar("author_name", { length: 128 }),
+    reviewerName: varchar("reviewer_name", { length: 128 }),
+    reviewStatus: varchar("review_status", { length: 32 }),
+    reviewNotes: text("review_notes"),
+    aiGenerated: boolean("ai_generated").notNull().default(false),
+    generationMetadata: jsonb("generation_metadata"),
+    sources: jsonb("sources").notNull().default([]),
+    templateId: uuid("template_id"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("seo_content_slug_locale_unique").on(t.slug, t.locale)]
+);
+
+/** Reusable templates for local SEO page factory (Phase 3). */
+export const seoPageTemplates = pgTable("seo_page_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: varchar("slug", { length: 128 }).notNull().unique(),
+  name: varchar("name", { length: 256 }).notNull(),
+  contentType: varchar("content_type", { length: 32 }).notNull().default("local_page"),
+  slugPattern: varchar("slug_pattern", { length: 256 }).notNull(),
+  titleTemplate: varchar("title_template", { length: 512 }).notNull(),
+  descriptionTemplate: text("description_template").notNull(),
+  bodyTemplate: text("body_template"),
+  aisoTemplate: jsonb("aiso_template").notNull().default([]),
+  entityType: varchar("entity_type", { length: 64 }).notNull().default("location"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** SEO performance snapshots (GSC / CWV / AI referrals). */
+export const seoMetrics = pgTable(
+  "seo_metrics",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    path: varchar("path", { length: 512 }).notNull(),
+    metricDate: date("metric_date").notNull(),
+    impressions: integer("impressions"),
+    clicks: integer("clicks"),
+    avgPosition: decimal("avg_position", { precision: 8, scale: 2 }),
+    cwvLcp: decimal("cwv_lcp", { precision: 8, scale: 3 }),
+    cwvInp: decimal("cwv_inp", { precision: 8, scale: 3 }),
+    cwvCls: decimal("cwv_cls", { precision: 8, scale: 4 }),
+    aiReferrals: integer("ai_referrals").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("seo_metrics_path_date_unique").on(t.path, t.metricDate)]
+);
+
+/** Vector embeddings for semantic search (JSON float array — pgvector optional upgrade). */
+export const seoEmbeddings = pgTable("seo_embeddings", {
+  contentId: uuid("content_id")
+    .primaryKey()
+    .references(() => seoContent.id, { onDelete: "cascade" }),
+  model: varchar("model", { length: 64 }).notNull(),
+  dimensions: integer("dimensions").notNull(),
+  embedding: jsonb("embedding").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Search Console query snapshots for content gap analysis. */
+export const seoSearchQueries = pgTable(
+  "seo_search_queries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    query: varchar("query", { length: 512 }).notNull(),
+    metricDate: date("metric_date").notNull(),
+    impressions: integer("impressions").notNull().default(0),
+    clicks: integer("clicks").notNull().default(0),
+    avgPosition: decimal("avg_position", { precision: 8, scale: 2 }),
+    landingPath: varchar("landing_path", { length: 512 }),
+    source: varchar("source", { length: 32 }).notNull().default("gsc"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("seo_search_query_unique").on(t.query, t.metricDate, t.landingPath)]
+);
+
+/** Competitor SERP position snapshots (Phase 4). */
+export const seoCompetitorSnapshots = pgTable(
+  "seo_competitor_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    query: varchar("query", { length: 512 }).notNull(),
+    competitorDomain: varchar("competitor_domain", { length: 256 }).notNull(),
+    competitorUrl: varchar("competitor_url", { length: 512 }),
+    position: integer("position").notNull(),
+    ourPosition: integer("our_position"),
+    ourUrl: varchar("our_url", { length: 512 }),
+    capturedAt: date("captured_at").notNull(),
+    source: varchar("source", { length: 32 }).notNull().default("manual"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("seo_competitor_snapshot_unique").on(
+      t.query,
+      t.competitorDomain,
+      t.capturedAt
+    ),
+  ]
+);
+
+/** AI referrer / citation events aggregated by path (Phase 4). */
+export const seoAiCitations = pgTable(
+  "seo_ai_citations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    path: varchar("path", { length: 512 }).notNull(),
+    referrerSource: varchar("referrer_source", { length: 64 }).notNull(),
+    citationDate: date("citation_date").notNull(),
+    sessions: integer("sessions").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("seo_ai_citation_unique").on(t.path, t.referrerSource, t.citationDate),
+  ]
+);
