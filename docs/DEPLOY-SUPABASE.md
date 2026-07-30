@@ -1,110 +1,135 @@
-# Precifarm CMS — Supabase database + Netlify app
+# Precifarm CMS — PostgreSQL setup (Supabase or any Postgres host)
 
-Supabase hosts the **PostgreSQL database** (persistent bookings, payments, agents). The **Next.js CMS app** still runs on Netlify (or Vercel) and connects to Supabase via `DATABASE_URL`.
+Supabase provides **managed PostgreSQL** for development, staging, analytics, and SEO. The CMS app connects via `DATABASE_URL` — the **app host is separate** (Cloud Run in production).
 
 ```
 Website / Mobile app
         │
         ▼
-   Netlify (CMS Next.js)
+   Cloud Run (CMS Next.js)     ← production host
         │
         ▼
-   Supabase PostgreSQL  ← persistent store
+   PostgreSQL                   ← Supabase (dev) or Cloud SQL (prod)
 ```
 
-## 1. Supabase project
+> **Production target:** Cloud SQL in `africa-south1` with Secret Manager — same schema and commands as below. See [DEPLOY-CLOUD-RUN.md](./DEPLOY-CLOUD-RUN.md).
 
-Your project (from dashboard):
+---
 
-| Setting | Value |
-|---------|--------|
-| Project ID | `wvqkhvimsxgyxryehnom` |
-| Region | West EU (Ireland) |
+## 1. Create / open Supabase project
 
-In Supabase: **Project Settings → Database → Connection string → URI**
+In [Supabase dashboard](https://supabase.com/dashboard):
 
-Use the **Transaction pooler** string (port **6543**) for serverless Netlify. Copy the URI from Supabase → **Connect** (replace `[YOUR-PASSWORD]` with your database password, URL-encoded).
+1. Create or open your project
+2. **Project Settings → Database** — note region and database password
+3. **Connect → Transaction pooler** (port **6543**) for serverless/Cloud Run
 
-## 2. Push schema (one time, from your PC)
+**Do not commit** project ref, password, or full URI — store only in `.env`.
 
-Add to `.env`:
+---
+
+## 2. Configure CMS `.env`
+
+```bash
+cp .env.example .env
+```
+
+Set **one of**:
 
 ```env
-SUPABASE_DB_PASSWORD="your-database-password"
+SUPABASE_DB_PASSWORD=your-database-password
 ```
 
-Then run:
+or full pooler URI:
+
+```env
+DATABASE_URL=postgresql://postgres.<PROJECT_REF>:<PASSWORD>@aws-0-<REGION>.pooler.supabase.com:6543/postgres
+```
+
+---
+
+## 3. Push schema and seed
 
 ```bash
 npm run supabase:setup
 ```
 
-This pushes the schema, seeds demo data, and writes the encoded `DATABASE_URL` to `.env` locally.
+This runs:
 
-### SEO / AISO (Phases 2–4)
+- `drizzle-kit push` (all tables including `app_store`, analytics, SEO)
+- `seed-postgres.ts` (demo bookings in `app_store` blob)
+- Writes encoded `DATABASE_URL` to `.env` (local only)
 
-After the base setup, push SEO tables and seed content:
+### SEO / AISO (required for website content pages)
 
 ```bash
 npm run supabase:seo
 ```
 
-This runs `drizzle-kit push` (adds `seo_*` tables, locale column, competitor/citation tables), seeds entities + guides + Swahili FAQ, generates local page drafts, and loads sample competitor snapshots.
+Adds SEO tables, entities, guides, Swahili FAQ, local page drafts.
 
-Also set in CMS `.env` (and production env):
+Also set:
 
 ```env
 NEXT_PUBLIC_SITE_URL=https://precifarm.com
 ```
 
-## 3. Netlify environment variables
+### Analytics views (Metabase)
 
-In **Netlify → Site → Environment variables**, add:
-
-| Variable | Value |
-|----------|--------|
-| `DATABASE_URL` | Copy from local `.env` after `npm run supabase:setup`. **Scopes: Functions only** — do **not** include Builds (avoids Netlify secrets scan failures). |
-| `DEMO_PAYMENT` | `false` (for live M-Pesa) |
-| `MPESA_*` | Your Daraja credentials (see `.env.example`) |
-| `MPESA_CALLBACK_URL` | `https://YOUR-CMS-DOMAIN/api/v1/payments/mpesa/callback` |
-
-Redeploy after saving env vars.
-
-## 4. Verify
-
-Open:
-
-```
-GET https://YOUR-CMS-DOMAIN/api/v1/health
+```bash
+npm run analytics:views
 ```
 
-Expected:
+---
 
-```json
-{
-  "data": {
-    "ok": true,
-    "storageBackend": "postgresql",
-    "databaseConfigured": true,
-    ...
-  }
-}
+## 4. Verify locally
+
+```bash
+npm run dev
+curl http://localhost:3002/api/v1/health
 ```
 
-Log in at `/login` with `agent@precifarm.com` / `precifarm2026` (seeded on first request if DB was empty).
+Expect `storageBackend: "postgresql"`, `analyticsPostgres: true`.
 
-## 5. Website + mobile
+---
 
-Point the website and mobile app API URL at the Netlify CMS host:
+## 5. Production env vars (Cloud Run)
 
-```
-CMS_API_URL=https://YOUR-CMS-DOMAIN/api
-EXPO_PUBLIC_API_URL=https://YOUR-CMS-DOMAIN/api
-```
+Store in **GCP Secret Manager** — not Netlify dashboard:
 
-## Notes
+| Variable | Notes |
+|---|---|
+| `DATABASE_URL` | Cloud SQL socket URI or Supabase pooler |
+| `DEMO_PAYMENT` | `false` for live M-Pesa |
+| `MPESA_*` | Daraja credentials |
+| `ANALYTICS_INGEST_KEY` | Match website |
+| `OPENAI_API_KEY` | SEO embeddings |
 
-- **Supabase does not host Next.js** — only the database. Keep Netlify for the CMS UI and API routes.
-- Use the **pooler** URL (6543), not the direct connection (5432), on Netlify serverless functions.
-- Data lives in Supabase; redeploys and cold starts no longer wipe bookings.
-- For production hardening later: migrate from JSON `app_store` blob to normalized Drizzle tables (schema already defined in `src/db/schema.ts`).
+See [ecosystem environment.md](../../kenya-ebus-ecosystem/docs/infrastructure/environment.md).
+
+---
+
+## 6. Storage model
+
+PostgreSQL stores booking state in **`app_store.data` JSONB** (same as local JSON file). Analytics and SEO use relational tables.
+
+See [STORAGE.md](./STORAGE.md) and [ecosystem database.md](../../kenya-ebus-ecosystem/docs/infrastructure/database.md).
+
+---
+
+## Troubleshooting
+
+| Issue | Fix |
+|---|---|
+| Connection refused | Use pooler port 6543, not direct 5432, on serverless |
+| Analytics disabled | Run `supabase:setup`; check health `analyticsPostgres` |
+| Website guides 404 | Run `supabase:seo`; ensure website `CMS_API_URL` set |
+| DDL fails on push | Use session pooler :5432 for `db:push` (see `drizzle.config.ts`) |
+
+---
+
+## Related
+
+- [DEPLOY-CLOUD-RUN.md](./DEPLOY-CLOUD-RUN.md)
+- [SEO.md](./SEO.md)
+- [ANALYTICS.md](./ANALYTICS.md)

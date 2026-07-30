@@ -1,5 +1,7 @@
 # Netlify — where to find settings (2026 UI)
 
+> **Deprecated (2026-07):** Production CMS deploys to **Google Cloud Run** — see [DEPLOY-CLOUD-RUN.md](./DEPLOY-CLOUD-RUN.md). Kept for migration troubleshooting only.
+
 Netlify renamed/moved things. There is often **no top-level “Plugins” menu**.
 
 ## Where to look

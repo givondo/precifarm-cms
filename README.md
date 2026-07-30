@@ -31,12 +31,14 @@ Cargo and last-mile modules exist in code. They are Stage 1 expansion capability
 | Cargo booking | Waybill, sender/receiver ID, optional **last mile delivery** (+ KSh 500) |
 | Delivery messaging | Stage-based SMS to sender & receiver (`/delivery`) — logged to `data/sms.log` |
 | Last mile ops | Rider assignment & dispatch by destination city (`/last-mile`) |
-| Public API | Routes, trips, seats, bookings, cargo, payments (STK/callback/status), **health** |
+| Public API | Routes, trips, seats, bookings, cargo, payments, **analytics ingest**, **SEO content**, health |
+| Analytics | Ingest API, admin `/analytics`, daily aggregation — requires Postgres |
+| SEO / AISO | Public `/api/v1/seo/*`, admin `/seo/*`, website guides/FAQ/locations — requires Postgres |
 | Customer channels | **Website** (CMS proxy), **Mobile app** (direct API) — harmonized M-Pesa Express STK |
 | Ops API | Deliveries, riders, last-mile, reconciliation, refunds (agent auth) |
 | M-Pesa Express STK | Live Daraja when `DEMO_PAYMENT=false` + credentials; demo instant receipt otherwise |
 | Cargo | ET01 module — 500 kg/departure, KSh 50/kg, last mile +KSh 500 |
-| Storage | JSON file (`data/store.json`) by default; PostgreSQL schema ready via Drizzle |
+| Storage | JSON file default; **PostgreSQL** with `app_store` blob + analytics/SEO tables |
 | Reconciliation | Daily M-Pesa, cash, booking and SMS summary at `/reconciliation` |
 | Lookup & refunds | Search by reference at `/lookup`; cancel/refund from agent desk |
 
@@ -57,16 +59,17 @@ npm run tunnel:mpesa      # HTTPS tunnel for local STK callbacks
 
 > Do not run `npm run build` while the dev server is running — the build script stops port 3002 first to avoid corrupting `.next`.
 
-### PostgreSQL (optional)
+### PostgreSQL (recommended for analytics + SEO)
 
 ```bash
-docker compose up -d
-cp .env.example .env.local   # set DATABASE_URL
-npm run db:push
-npm run db:seed
+cp .env.example .env          # set SUPABASE_DB_PASSWORD or DATABASE_URL
+npm run supabase:setup        # schema + seed + write DATABASE_URL
+npm run supabase:seo          # SEO tables + website content seed
 ```
 
-Without `DATABASE_URL`, the app uses the JSON file store (zero-config local dev).
+Without Postgres, the app uses JSON file store (`data/store.json`).
+
+Storage model: [docs/STORAGE.md](./docs/STORAGE.md) — booking uses `app_store` JSON blob; analytics/SEO use relational tables.
 
 ### Public API (website integration)
 
@@ -125,19 +128,22 @@ Without `DATABASE_URL`, the app uses the JSON file store (zero-config local dev)
 
 ## Documentation index
 
-Read in order before writing code:
-
 | # | Document | Contents |
 |---|---|---|
-| 1 | [Project specification](./docs/PROJECT_SPECIFICATION.md) | Vision, scope, requirements, architecture, phases, edge cases |
-| 2 | [Data model](./docs/DATA_MODEL.md) | PostgreSQL schema, entities, relationships, migrations |
-| 3 | [API reference](./docs/API_REFERENCE.md) | REST endpoints, auth, request/response shapes, errors |
-| 4 | [Channels & workflows](./docs/CHANNELS_AND_WORKFLOWS.md) | Website, PWA, agent desk, cargo — step-by-step flows |
-| 5 | [Payments & settlement](./docs/PAYMENTS_AND_SETTLEMENT.md) | M-Pesa, cash, reconciliation, idempotency |
-| 6 | [Integrations](./docs/INTEGRATIONS.md) | Website, mobile app, SMS, M-Pesa Daraja |
-| 7 | [Client channels](./docs/CLIENT_CHANNELS.md) | Mobile + website booking flows aligned to this API |
-| 8 | [Security & compliance](./docs/SECURITY_AND_COMPLIANCE.md) | Auth, RBAC, audit, Kenya regulatory notes |
-| 9 | [Glossary & conventions](./docs/GLOSSARY_AND_CONVENTIONS.md) | Copy rules, terms, reference formats |
+| — | [Deploy — Cloud Run](./docs/DEPLOY-CLOUD-RUN.md) | **Production** GCP deploy |
+| — | [Deploy — Supabase DB](./docs/DEPLOY-SUPABASE.md) | PostgreSQL setup (dev/staging) |
+| — | [Storage](./docs/STORAGE.md) | app_store blob vs relational tables |
+| — | [Analytics](./docs/ANALYTICS.md) | Ingest API + aggregation |
+| — | [SEO / AISO](./docs/SEO.md) | Content API for website |
+| 1 | [Project specification](./docs/PROJECT_SPECIFICATION.md) | Vision, scope, phases |
+| 2 | [Data model](./docs/DATA_MODEL.md) | Schema spec (forward-looking) |
+| 3 | [API reference](./docs/API_REFERENCE.md) | REST endpoints |
+| 4 | [Channels & workflows](./docs/CHANNELS_AND_WORKFLOWS.md) | User journeys |
+| 5 | [Payments & settlement](./docs/PAYMENTS_AND_SETTLEMENT.md) | M-Pesa, reconciliation |
+| 6 | [Integrations](./docs/INTEGRATIONS.md) | Website, mobile, Daraja |
+| 7 | [Security & compliance](./docs/SECURITY_AND_COMPLIANCE.md) | Auth, RBAC |
+
+Ecosystem: [workflows](../../kenya-ebus-ecosystem/docs/infrastructure/workflows.md) · [database](../../kenya-ebus-ecosystem/docs/infrastructure/database.md)
 
 ---
 
@@ -163,11 +169,11 @@ Ordered by impact for completing Phase A (**discover → book → pay → reconc
 
 | Priority | Item | Why |
 |---|---|---|
-| **1** | **Wire PostgreSQL** | Schema and Drizzle are ready; switch `services` from JSON store when `DATABASE_URL` is set |
-| **2** | **Live SMS provider** | Ticket + delivery messages log to `data/sms.log` only |
-| **3** | **Stable M-Pesa callbacks** | Use `npm run tunnel:mpesa` or ngrok; register HTTPS URL in Daraja — see [mobile Daraja guide](../../Desktop/Precifarm%20Mobile%20App/docs/DARAJA_SETUP.md) |
-| **4** | **Sync workflow docs** | Align [Channels & workflows](./docs/CHANNELS_AND_WORKFLOWS.md) with delivery/LMD desk flows |
-| **5** | **Agent auth hardening** | Session cookies work for desk; add MFA and RBAC before multi-branch rollout (Phase B) |
+| **1** | **Normalized booking storage** | Migrate services from `app_store` JSON blob to Drizzle tables |
+| **2** | **Cloud SQL production** | Complete Cloud Run + Cloud SQL migration — see DEPLOY-CLOUD-RUN.md |
+| **3** | **GCP analytics cron** | Cloud Scheduler → `/api/v1/analytics/aggregate` |
+| **4** | **Live SMS provider** | Messages log to `data/sms.log` only |
+| **5** | **Agent auth hardening** | MFA and RBAC before multi-branch rollout |
 
 ### Dev & ops tips
 

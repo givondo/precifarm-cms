@@ -1,62 +1,61 @@
 # Precifarm Ticketing CMS — deploy
 
-## GitHub
+> **Production (2026-07):** [DEPLOY-CLOUD-RUN.md](./DEPLOY-CLOUD-RUN.md) — Google Cloud Run at `api.precifarm.com`.  
+> **Database:** [DEPLOY-SUPABASE.md](./DEPLOY-SUPABASE.md) or Cloud SQL — host-agnostic PostgreSQL setup.
 
-Repository: `givondo/precifarm-cms` (after push)
+Netlify and Vercel are **deprecated** for new deploys.
 
-## Vercel (recommended for Next.js)
+---
 
-> **Note:** If Vercel billing is inactive, use Netlify below or reactivate at vercel.com → Settings → Billing.
+## Recommended path
 
-1. Import `givondo/precifarm-cms` at [vercel.com/new](https://vercel.com/new)
-2. Set **Root Directory** to repo root
-3. Add environment variables from `.env.example` (production values in Vercel dashboard only)
-4. Deploy — note the URL (e.g. `https://precifarm-cms.vercel.app`)
-5. Optional custom domain: `cms.precifarm.co.ke` or `api.precifarm.com`
+| Step | Document |
+|---|---|
+| 1. PostgreSQL | [DEPLOY-SUPABASE.md](./DEPLOY-SUPABASE.md) (dev/staging) or Cloud SQL (production) |
+| 2. App host | [DEPLOY-CLOUD-RUN.md](./DEPLOY-CLOUD-RUN.md) |
+| 3. Website link | Set `CMS_API_URL` on website Cloud Run — [ecosystem DEPLOY-GCP](../../kenya-ebus-ecosystem/website/docs/DEPLOY-GCP.md) |
 
-### Required production env vars
+---
 
-| Variable | Example |
-|----------|---------|
-| `DEMO_PAYMENT` | `false` |
-| `MPESA_CONSUMER_KEY` | from Daraja portal |
-| `MPESA_CONSUMER_SECRET` | from Daraja portal |
-| `MPESA_PASSKEY` | Lipa Na M-Pesa passkey |
-| `MPESA_SHORTCODE` | paybill number |
-| `MPESA_CALLBACK_URL` | `https://YOUR-CMS-HOST/api/v1/payments/mpesa/callback` |
-| `MPESA_ENVIRONMENT` | `production` |
+## Verify after deploy
 
-Health check: `GET /api/v1/health`
-
-## Netlify + Supabase (recommended for production)
-
-**Database:** [Supabase PostgreSQL](./DEPLOY-SUPABASE.md) — persistent storage for bookings and payments.
-
-**App host:** Netlify (Next.js UI + API).
-
-1. Complete [DEPLOY-SUPABASE.md](./DEPLOY-SUPABASE.md) (schema push + `DATABASE_URL`)
-2. Import `givondo/precifarm-cms` at [app.netlify.com](https://app.netlify.com)
-3. Build: `npm run build:netlify`, publish `.next` (see `netlify.toml`)
-4. Add env vars: `DATABASE_URL` + M-Pesa vars from `.env.example`
-5. Optional domain: `cms.precifarm.co.ke`
-
-## Netlify (alternative — precifarm.com already uses Netlify)
-
-1. [app.netlify.com](https://app.netlify.com) → **Add new site** → **Import from Git** → `givondo/precifarm-cms`
-2. Build: `npm run build`, publish handled by `@netlify/plugin-nextjs`
-3. Site settings → Environment variables → add M-Pesa vars from `.env.example`
-4. Optional domain: `cms.precifarm.co.ke` or subdomain under precifarm.com
-
-## Website connection
-
-Set on the **website** Vercel project:
-
-```
-CMS_API_URL=https://YOUR-CMS-HOST/api
+```bash
+curl https://api.precifarm.com/api/v1/health
 ```
 
-Mobile app EAS:
+Expect: `paymentMode`, `storageBackend`, `analyticsPostgres`.
 
+---
+
+## Legacy hosts (do not use for new deploys)
+
+<details>
+<summary>Vercel / Netlify (deprecated)</summary>
+
+These were used during early prototyping. `netlify.toml` and Netlify scheduled functions remain in repo for reference only.
+
+- Vercel: import repo, set env from `.env.example`
+- Netlify: `npm run build:netlify`, see `DEPLOY-SUPABASE.md` for DB env vars
+
+Migrate to Cloud Run — see [DEPLOY-CLOUD-RUN.md](./DEPLOY-CLOUD-RUN.md).
+
+</details>
+
+---
+
+## Channel connection
+
+**Website** (`kenya-ebus-ecosystem/website`):
+
+```env
+CMS_API_URL=https://api.precifarm.com/api
 ```
-EXPO_PUBLIC_API_URL=https://YOUR-CMS-HOST/api
+
+**Mobile** (`Precifarm Mobile App`):
+
+```env
+EXPO_PUBLIC_API_URL=https://api.precifarm.com/api
+EXPO_PUBLIC_USE_MOCK=false
 ```
+
+Secrets: [ecosystem environment.md](../../kenya-ebus-ecosystem/docs/infrastructure/environment.md)
