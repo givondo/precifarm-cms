@@ -37,7 +37,7 @@ steps:
       - --min-instances=0
       - --max-instances=10
       - --set-secrets=DATABASE_URL=precifarm-database-url:latest,DEMO_PAYMENT=precifarm-demo-payment:latest,MPESA_CONSUMER_KEY=precifarm-mpesa-consumer-key:latest,MPESA_CONSUMER_SECRET=precifarm-mpesa-consumer-secret:latest,MPESA_PASSKEY=precifarm-mpesa-passkey:latest,MPESA_SHORTCODE=precifarm-mpesa-shortcode:latest,MPESA_CALLBACK_URL=precifarm-mpesa-callback-url:latest,MPESA_ENVIRONMENT=precifarm-mpesa-environment:latest
-      - --set-env-vars=NEXT_PUBLIC_SITE_URL=${_SITE_URL}
+      - --set-env-vars=NEXT_PUBLIC_SITE_URL=${_SITE_URL},ANALYTICS_ENVIRONMENT=production
 
 images:
   - ${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms:$BUILD_ID
