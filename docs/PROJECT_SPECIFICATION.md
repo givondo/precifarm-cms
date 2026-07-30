@@ -52,7 +52,7 @@ The beachhead route is **Nairobi–Kisumu**. A working booking demo already exis
 | Layer | Precifarm | Partners |
 |---|---|---|
 | **Charging hubs** | Build, own, operate; sell energy; guarantee uptime | Site hosts — land/location rights; may co-invest |
-| **Operating network** | Brand, timetable, tickets, booking, payments, service data | Coaches, drivers, PSV licences, passenger insurance |
+| **Operating network** | Brand, timetable, tickets, booking, payments, service data | Buses, drivers, PSV licences, passenger insurance |
 | **Partner mobility** | Passenger demand, charging windows, service standards | Own coaches; in-cabin experience |
 | **Fleet and cargo** | Precifarm Cargo coordination; fleet charging and hub invoicing | Dispatch and cargo ops; Precifarm supplies energy |
 | **EV home charging** | Survey, design, install, O&M (separate product line) | Homeowners/estates |

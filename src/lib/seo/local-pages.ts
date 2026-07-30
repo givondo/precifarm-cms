@@ -134,20 +134,20 @@ export async function upsertDefaultLocalTemplate() {
       slugPattern: "ev-charging-{slug}",
       titleTemplate: "EV charging hubs in {city}, Kenya",
       descriptionTemplate:
-        "Find electric vehicle charging at Precifarm network hubs serving {city} and {county}. Fast DC charging for coaches and fleets.",
+        "Find electric vehicle charging at Precifarm network hubs serving {city} and {county}. Fast DC charging for buses and fleets.",
       bodyTemplate: `## EV charging in {city}
 
 Precifarm operates route hub charging infrastructure connected to {city} and surrounding {county} corridors.
 
 ### What we offer
 
-- DC fast charging for intercity electric coaches
+- DC fast charging for intercity electric buses
 - Reserved charging windows for fleet partners
 - Integration with Nairobi–Kisumu and expanding routes
 
 ### Plan your trip
 
-Book intercity electric coach seats online or contact us about hub charging for your fleet.`,
+Book intercity electric bus seats online or contact us about hub charging for your fleet.`,
       aisoTemplate: [
         {
           id: "summary",

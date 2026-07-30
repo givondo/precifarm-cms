@@ -57,7 +57,7 @@ const entities = [
     slug: "nairobi-kisumu",
     type: "route",
     name: "Nairobi – Kisumu",
-    description: "Live intercity electric coach route on the Precifarm network.",
+    description: "Live intercity electric bus route on the Precifarm network.",
     url: `${SITE_URL}/#book`,
     metadata: { duration: "4h 45m", distance: "345 km", fare: 1550, currency: "KES" },
     aliases: ["Nairobi Kisumu", "Nairobi to Kisumu"],
@@ -66,7 +66,7 @@ const entities = [
     slug: "yutong-u18",
     type: "equipment",
     name: "Yutong U18",
-    description: "Electric intercity coach used on Nairobi–Kisumu scheduled service.",
+    description: "Electric intercity bus used on Nairobi–Kisumu scheduled service.",
     metadata: {},
     aliases: [],
   },
@@ -74,7 +74,7 @@ const entities = [
     slug: "ev-fast-charger",
     type: "equipment",
     name: "DC Fast Charger",
-    description: "Hub fast charging for intercity electric coaches and fleets.",
+    description: "Hub fast charging for intercity electric buses and fleets.",
     metadata: {},
     aliases: ["EV charger", "fast charger"],
   },
@@ -99,7 +99,7 @@ const entities = [
     slug: "kisumu",
     type: "location",
     name: "Kisumu",
-    description: "Lake Victoria city and western terminus of the Nairobi–Kisumu electric coach route.",
+    description: "Lake Victoria city and western terminus of the Nairobi–Kisumu electric bus route.",
     metadata: { county: "Kisumu County", region: "Western Kenya", lat: -0.1022, lng: 34.7617 },
     aliases: [],
   },
@@ -148,13 +148,13 @@ const entities = [
 const content = [
   {
     slug: "book-nairobi-kisumu-coach",
-    title: "How to book Nairobi–Kisumu electric coach tickets",
+    title: "How to book Nairobi–Kisumu electric bus tickets",
     description:
       "Step-by-step guide to booking a reserved seat on Precifarm's Nairobi–Kisumu Yutong U18 service with M-Pesa payment and SMS ticket delivery.",
     contentType: "guide",
     bodyMd: `## Overview
 
-Precifarm operates scheduled electric coach service between Nairobi and Kisumu on the Yutong U18. Book online at precifarm.com or through the Android passenger app.
+Precifarm operates scheduled electric bus service between Nairobi and Kisumu on the Yutong U18. Book online at precifarm.com or through the Android passenger app.
 
 ## Before you book
 
@@ -168,7 +168,7 @@ Precifarm operates scheduled electric coach service between Nairobi and Kisumu o
 
 1. Open the booking form at [precifarm.com/#book](https://precifarm.com/#book)
 2. Select your travel date and departure time
-3. Choose your seat on the coach layout
+3. Choose your seat on the bus layout
 4. Enter passenger name, phone number and ID number
 5. Confirm details and pay with **M-Pesa STK push**
 6. Save your SMS ticket with reference **PF-XXXXXX**
@@ -179,7 +179,7 @@ Arrive at the departure point before boarding time. Present your ID and booking 
 
 ## Why hub charging matters
 
-Every departure has **reserved hub charging** locked in before the coach leaves — energy you can plan around, not a charger you hope is free.`,
+Every departure has **reserved hub charging** locked in before the bus leaves — energy you can plan around, not a charger you hope is free.`,
     aisoBlocks: [
       {
         id: "summary",
@@ -195,7 +195,7 @@ Every departure has **reserved hub charging** locked in before the coach leaves 
         items: [
           "Open precifarm.com and scroll to the booking form",
           "Select travel date, departure time and number of passengers",
-          "Choose your seat on the Yutong U18 coach",
+          "Choose your seat on the Yutong U18 bus",
           "Enter full name, phone number and National ID or passport",
           "Confirm details and pay with M-Pesa STK push",
           "Save your SMS ticket with the PF booking reference",
@@ -208,7 +208,7 @@ Every departure has **reserved hub charging** locked in before the coach leaves 
         items: [
           "Fixed fare KSh 1,550 per seat",
           "Journey ~4h 45m, ~345 km",
-          "Yutong U18 electric intercity coach",
+          "Yutong U18 electric intercity bus",
           "M-Pesa checkout + SMS ticket delivery",
           "Hub charging reserved before every departure",
         ],
@@ -219,9 +219,9 @@ Every departure has **reserved hub charging** locked in before the coach leaves 
     slug: "precifarm-booking-faq",
     title: "Precifarm booking FAQ",
     description:
-      "Answers to common questions about booking Nairobi–Kisumu electric coach travel, M-Pesa payment, tickets, boarding and charging hubs.",
+      "Answers to common questions about booking Nairobi–Kisumu electric bus travel, M-Pesa payment, tickets, boarding and charging hubs.",
     contentType: "faq",
-    bodyMd: `Answers to the most common questions about booking on Precifarm — Nairobi–Kisumu electric coach travel, M-Pesa tickets and hub charging.`,
+    bodyMd: `Answers to the most common questions about booking on Precifarm — Nairobi–Kisumu electric bus travel, M-Pesa tickets and hub charging.`,
     aisoBlocks: [
       {
         id: "faq",
@@ -231,7 +231,7 @@ Every departure has **reserved hub charging** locked in before the coach leaves 
           {
             question: "What is Precifarm?",
             answer:
-              "Precifarm builds charging hubs and the operating network that make electric travel between Kenyan cities dependable and bookable. Licensed partners operate the coaches; Precifarm provides energy, schedules, M-Pesa tickets and passenger service data.",
+              "Precifarm builds charging hubs and the operating network that make electric travel between Kenyan cities dependable and bookable. Licensed partners operate the buses; Precifarm provides energy, schedules, M-Pesa tickets and passenger service data.",
           },
           {
             question: "How do I book a seat on Nairobi–Kisumu?",
@@ -240,7 +240,7 @@ Every departure has **reserved hub charging** locked in before the coach leaves 
           },
           {
             question: "How much does Nairobi–Kisumu cost?",
-            answer: "The fixed fare is KSh 1,550 per seat on the Yutong U18 electric coach.",
+            answer: "The fixed fare is KSh 1,550 per seat on the Yutong U18 electric bus.",
           },
           {
             question: "What payment methods are accepted?",
@@ -268,9 +268,9 @@ Every departure has **reserved hub charging** locked in before the coach leaves 
               "Yes. Download the Android passenger app at precifarm.com/download to book seats and pay with M-Pesa on your phone.",
           },
           {
-            question: "Who operates the coaches?",
+            question: "Who operates the buses?",
             answer:
-              "Licensed partner operators run the Yutong U18 coaches on the published schedule. Precifarm provides the energy, booking network and operating standards.",
+              "Licensed partner operators run the Yutong U18 buses on the published schedule. Precifarm provides the energy, booking network and operating standards.",
           },
         ],
       },
@@ -280,7 +280,7 @@ Every departure has **reserved hub charging** locked in before the coach leaves 
     slug: "ev-charging-hubs-kenya",
     title: "EV charging hubs for intercity routes in Kenya",
     description:
-      "How Precifarm designs and operates route charging hubs with reserved windows for scheduled electric coaches and fleet partners.",
+      "How Precifarm designs and operates route charging hubs with reserved windows for scheduled electric buses and fleet partners.",
     contentType: "guide",
     bodyMd: `## What is a route charging hub?
 
@@ -289,7 +289,7 @@ A Precifarm hub combines **DC fast charging**, **solar generation** and **batter
 ## Four layers, one hub
 
 1. **Grid + solar + storage** — dependable energy with predictable costs
-2. **DC fast charging (CCS2)** — modular chargers with reserved windows for scheduled coaches
+2. **DC fast charging (CCS2)** — modular chargers with reserved windows for scheduled buses
 3. **Passenger dwell** — safe circulation, shade and amenities aligned to timetables
 4. **Live monitoring** — 24/7 status, OCPP telemetry and honest recovery when something fails
 
@@ -299,7 +299,7 @@ Operators run timetables. An occupied or offline charger breaks the schedule. Pr
 
 ## Who can use Precifarm hubs?
 
-- **Passengers** — book scheduled intercity coaches at precifarm.com/#book
+- **Passengers** — book scheduled intercity buses at precifarm.com/#book
 - **Fleet operators** — reserved hub sessions and network services via precifarm.com/partners
 - **Site hosts** — revenue share and O&M partnerships via precifarm.com/charging
 

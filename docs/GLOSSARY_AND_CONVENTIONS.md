@@ -57,7 +57,7 @@ These rules apply to all user-facing text in the CMS, agent desk, PWA, and SMS m
 | **PWA** | Progressive Web App — mobile web app installable on home screen. |
 | **Neura Pod** | Precifarm solar/storage product (separate from ticketing). |
 | **ET01** | Electric cargo van used for fleet/logistics on the network. |
-| **U18** | Yutong U18 intercity electric coach (48 seats). |
+| **U18** | Yutong U18 intercity electric bus (48 seats). |
 | **U12** | Yutong U12 electric city bus (within-city, future). |
 | **OCPP** | Open Charge Point Protocol — charger communication standard (Phase C). |
 | **CSMS** | Charge Station Management System (Phase C integration). |
@@ -83,7 +83,7 @@ These rules apply to all user-facing text in the CMS, agent desk, PWA, and SMS m
 
 | Model | Role | Capacity | Route type | Image |
 |---|---|---|---|---|
-| Yutong U18 | Intercity coach | 48 seats (12×4) | Nairobi–Kisumu | `yutong-u18.png` |
+| Yutong U18 | Intercity bus | 48 seats (12×4) | Nairobi–Kisumu | `yutong-u18.png` |
 | Yutong U12 | City bus | TBD | Within-city (future) | `yutong-u12.png` |
 | ET01 | Cargo van | TBD kg | Same route network | `et01.jpg` |
 

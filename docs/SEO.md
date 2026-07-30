@@ -40,6 +40,17 @@ npm run seo:local-pages    # generate location page drafts
 
 Website proxy: `GET /api/search?q=` → CMS semantic search.
 
+### Content language (2026-07-30)
+
+| Topic | Convention |
+|---|---|
+| Vehicles | Prefer **electric bus / buses** (not coach) |
+| Charging | Charge Map, route hubs, private house charging |
+| App | Android APK via website; **iOS not available** |
+| Canon | Align with ecosystem [CANON.md](../../kenya-ebus-ecosystem/docs/CANON.md) v2.1+ |
+
+After editing `scripts/seed-seo.ts` or generators, re-run `npm run supabase:seo` (or `npm run db:seed-seo`).
+
 ---
 
 ## Admin desk (`/seo/*`, admin role)

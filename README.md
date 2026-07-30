@@ -1,10 +1,10 @@
 # Precifarm Ticketing & Payment CMS
 
-Source of truth for PreciFarm **Digital Ticketing** and **Settlement & Reporting** on Nairobi–Kisumu.
+Source of truth for PreciFarm **Digital Ticketing** and **Settlement & Reporting** on Nairobi–Kisumu (electric buses). SEO content APIs also power website guides, FAQ, Charge Map entities, and charging education.
 
 The CMS owns passenger trips, seats, bookings, payments, tickets, agent operations, reconciliation, and audit records. Website and mobile consume the same API.
 
-**Canonical business:** [`../kenya-ebus-ecosystem/docs/CANON.md`](../kenya-ebus-ecosystem/docs/CANON.md)  
+**Canonical business:** [`../kenya-ebus-ecosystem/docs/CANON.md`](../kenya-ebus-ecosystem/docs/CANON.md) (v2.1+ — prefer **electric bus** language)  
 **Booking agent:** [`../kenya-ebus-ecosystem/agents/passenger-booking/`](../kenya-ebus-ecosystem/agents/passenger-booking/)  
 **CMS channel:** [`../kenya-ebus-ecosystem/docs/channels/cms.md`](../kenya-ebus-ecosystem/docs/channels/cms.md)
 

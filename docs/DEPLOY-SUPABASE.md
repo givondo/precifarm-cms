@@ -124,7 +124,12 @@ See [STORAGE.md](./STORAGE.md) and [ecosystem database.md](../../kenya-ebus-ecos
 | Connection refused | Use pooler port 6543, not direct 5432, on serverless |
 | Analytics disabled | Run `supabase:setup`; check health `analyticsPostgres` |
 | Website guides 404 | Run `supabase:seo`; ensure website `CMS_API_URL` set |
+| Stale coach language in guides | Update `scripts/seed-seo.ts` then re-run `npm run supabase:seo` |
 | DDL fails on push | Use session pooler :5432 for `db:push` (see `drizzle.config.ts`) |
+
+### SEO content language (2026-07-30)
+
+Seeded guides/FAQ should prefer **electric bus / buses**, Charge Map, private house charging, and Android app (iOS not available). Align with ecosystem [CANON.md](../../kenya-ebus-ecosystem/docs/CANON.md) v2.1+.
 
 ---
 
