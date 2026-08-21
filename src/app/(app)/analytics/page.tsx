@@ -41,19 +41,19 @@ export default async function AnalyticsPage() {
       ) : null}
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-        North Star — Paid passenger seats
+        North Star — Home install surveys (website)
       </h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="stat-card">
-          <div className="label">Today</div>
+          <div className="label">Contact / survey leads ({data.periodDays}d)</div>
+          <div className="value">{data.contactSubmissionsPeriod}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">Legacy paid seats today</div>
           <div className="value">{data.northStar.paidSeatsToday}</div>
         </div>
         <div className="stat-card">
-          <div className="label">Last {data.periodDays} days</div>
-          <div className="value">{data.northStar.paidSeatsPeriod}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">GBV today</div>
+          <div className="label">GBV today (legacy bus)</div>
           <div className="value text-lg">{formatCurrency(data.revenue.gbvToday)}</div>
         </div>
         <div className="stat-card">

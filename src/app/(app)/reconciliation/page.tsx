@@ -15,7 +15,7 @@ export default async function ReconciliationPage({
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Reconciliation</h1>
-          <p className="text-sm text-gray-500 mt-1">Daily payment and booking summary</p>
+          <p className="text-sm text-gray-500 mt-1">Daily M-Pesa, install deposits and charging session summary</p>
         </div>
         <form method="get" className="flex items-end gap-2">
           <div>

@@ -15,38 +15,36 @@ function buildNavSections(role: string): NavSection[] {
       items: [{ href: "/dashboard", label: "Dashboard" }],
     },
     {
-      title: "Sales & booking",
+      title: "EV charging",
       items: [
-        { href: "/quick-book", label: "Quick Book", hint: "Passenger tickets" },
-        { href: "/cargo-book", label: "Cargo Book", hint: "Waybills & last mile" },
-      ],
-    },
-    {
-      title: "Cargo operations",
-      items: [
-        { href: "/delivery", label: "Delivery tracking", hint: "Stage updates & SMS" },
-        { href: "/last-mile", label: "Last mile", hint: "Riders & dispatch" },
-      ],
-    },
-    {
-      title: "Records",
-      items: [
-        { href: "/bookings", label: "Bookings" },
-        { href: "/lookup", label: "Lookup" },
-        { href: "/customers", label: "Customers" },
+        { href: "/installs", label: "Home installs", hint: "Pulse · Pod · Spark pipeline" },
+        {
+          href: "/charging-sessions",
+          label: "Charging sessions",
+          hint: "Corridor DC · Depot · Boda Hub",
+        },
+        { href: "/customers", label: "Customers", hint: "Phone and reference lookup" },
       ],
     },
     {
       title: "Finance",
       items: [
         { href: "/cash-session", label: "Cash session" },
-        { href: "/reconciliation", label: "Reconciliation" },
+        { href: "/reconciliation", label: "M-Pesa reconciliation", hint: "Deposits & sessions" },
         ...(role === "admin"
           ? [
-              { href: "/analytics", label: "Analytics", hint: "North Star & funnels" },
-              { href: "/seo", label: "SEO / AISO", hint: "Content & knowledge graph" },
+              { href: "/analytics", label: "Analytics", hint: "Funnels & acquisition" },
+              { href: "/seo", label: "SEO / AISO", hint: "Guides & locations" },
             ]
           : []),
+      ],
+    },
+    {
+      title: "Legacy companion",
+      items: [
+        { href: "/quick-book", label: "Bus tickets", hint: "Nairobi–Kisumu (companion)" },
+        { href: "/bookings", label: "Legacy bookings" },
+        { href: "/cargo-book", label: "Cargo", hint: "Waybills (legacy)" },
       ],
     },
   ];
@@ -75,7 +73,7 @@ export default function Sidebar({
     <aside className="w-60 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-screen">
       <div className="px-5 py-5 border-b border-gray-200">
         <div className="text-lg font-bold text-gray-900">Precifarm</div>
-        <div className="text-xs text-gray-500 mt-0.5">Ticketing & Payment CMS</div>
+        <div className="text-xs text-gray-500 mt-0.5">EV Charging & Payments CMS</div>
       </div>
 
       <nav className="flex-1 px-3 py-4 overflow-y-auto">

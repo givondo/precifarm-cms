@@ -35,6 +35,18 @@ import {
   listLastMileDeliveries,
   onCargoPaymentConfirmed,
 } from "@/lib/cargo-delivery";
+import {
+  formatInstallReference,
+  type InstallStage,
+  type StoreInstallOrder,
+} from "@/lib/ev-ops";
+import {
+  inferCityFromLead,
+  inferProductFromLead,
+  wantsLipaPolePole,
+} from "@/lib/ev-survey";
+import { insertAnalyticsEvent } from "@/lib/analytics/ingest";
+import { getAnalyticsEnvironment } from "@/lib/analytics/environment";
 
 export {
   assignRiderToCargo,
@@ -120,6 +132,206 @@ async function upsertCustomer(name: string, phone: string, email?: string): Prom
     s.customers.push({ id, phoneE164, name, email, createdAt: now, updatedAt: now });
   });
   return id;
+}
+
+async function upsertCustomerFromLead(
+  name: string,
+  email: string,
+  phone?: string,
+): Promise<string> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const phoneE164 = phone ? normalizeKenyanPhone(phone) : null;
+
+  if (phoneE164) {
+    return upsertCustomer(name, phone!, normalizedEmail);
+  }
+
+  const now = new Date().toISOString();
+  const store = await getStore();
+  const existing =
+    store.customers.find((c) => c.email?.toLowerCase() === normalizedEmail) ??
+    store.customers.find((c) => c.name === name && !c.phoneE164.startsWith("+254"));
+
+  if (existing) {
+    await mutateStore((s) => {
+      const c = s.customers.find((x) => x.id === existing.id)!;
+      c.name = name;
+      c.email = normalizedEmail;
+      c.updatedAt = now;
+    });
+    return existing.id;
+  }
+
+  const id = crypto.randomUUID();
+  let hash = 0;
+  for (const ch of normalizedEmail) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  const placeholderPhone = `+2547${String(hash).slice(-8).padStart(8, "0")}`;
+  await mutateStore((s) => {
+    s.customers.push({
+      id,
+      phoneE164: placeholderPhone,
+      name,
+      email: normalizedEmail,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+  return id;
+}
+
+function nextInstallReference(orders: StoreInstallOrder[]): string {
+  const nums = orders
+    .map((o) => parseInt(o.reference.replace(/^PI-/, ""), 10))
+    .filter((n) => !Number.isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return formatInstallReference(next);
+}
+
+export type CreateInstallSurveyInput = {
+  name: string;
+  email: string;
+  phone?: string;
+  interest: string;
+  message: string;
+  channel?: string;
+  anonymousId?: string;
+  contactSubmissionId?: string;
+};
+
+export async function createInstallSurveyFromLead(input: CreateInstallSurveyInput) {
+  const product = inferProductFromLead(input.interest, input.message);
+  if (!product) {
+    return { skipped: true as const, reason: "not_home_charging" as const };
+  }
+
+  await ensureSeeded();
+  const store = await getStore();
+  const email = input.email.trim().toLowerCase();
+  const today = getLocalDateString();
+  const existing = (store.installOrders ?? []).find(
+    (o) =>
+      o.contactEmail?.toLowerCase() === email &&
+      o.stage === "survey_requested" &&
+      o.createdAt.startsWith(today),
+  );
+  if (existing) {
+    return {
+      skipped: true as const,
+      reason: "duplicate_today" as const,
+      reference: existing.reference,
+      id: existing.id,
+    };
+  }
+
+  const { city, county } = inferCityFromLead(input.message);
+  const now = new Date().toISOString();
+  const customerId = await upsertCustomerFromLead(input.name, email, input.phone);
+  const id = crypto.randomUUID();
+  const reference = nextInstallReference(store.installOrders ?? []);
+  const contactPhone = input.phone ? normalizeKenyanPhone(input.phone) ?? "" : "";
+
+  const order: StoreInstallOrder = {
+    id,
+    reference,
+    customerId,
+    product,
+    city,
+    county,
+    stage: "survey_requested",
+    lipaPolePole: wantsLipaPolePole(input.message),
+    channel: input.channel ?? "web",
+    contactName: input.name.trim(),
+    contactPhone,
+    contactEmail: email,
+    notes: input.message.trim(),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await mutateStore((s) => {
+    if (!s.installOrders) s.installOrders = [];
+    s.installOrders.push(order);
+  });
+
+  await logAudit("install_order", id, "survey_requested", "customer", undefined, {
+    reference,
+    product,
+    city,
+    contactSubmissionId: input.contactSubmissionId,
+  });
+
+  await insertAnalyticsEvent({
+    event_id: crypto.randomUUID(),
+    event_name: "install_survey_requested",
+    schema_version: 1,
+    event_timestamp: now,
+    anonymous_id: input.anonymousId,
+    platform: "web",
+    environment: getAnalyticsEnvironment(),
+    event_properties: {
+      reference,
+      product,
+      city,
+      lipa_pole_pole: order.lipaPolePole,
+      channel: order.channel,
+      contact_submission_id: input.contactSubmissionId ?? null,
+    },
+  });
+
+  return {
+    skipped: false as const,
+    id,
+    reference,
+    product,
+    stage: order.stage,
+  };
+}
+
+export async function updateInstallStage(
+  reference: string,
+  stage: InstallStage | undefined,
+  agentId?: string,
+  extras?: { quoteAmount?: number; depositAmount?: number },
+) {
+  await ensureSeeded();
+  const store = await getStore();
+  const order = (store.installOrders ?? []).find((o) => o.reference === reference);
+  if (!order) {
+    return { error: "Install order not found.", status: 404 as const };
+  }
+
+  const nextStage = stage ?? order.stage;
+  const now = new Date().toISOString();
+  await mutateStore((s) => {
+    const row = s.installOrders!.find((o) => o.reference === reference)!;
+    row.stage = nextStage;
+    row.updatedAt = now;
+    if (extras?.quoteAmount != null) row.quoteAmount = extras.quoteAmount;
+    if (extras?.depositAmount != null) row.depositAmount = extras.depositAmount;
+    if (nextStage === "commissioned") row.commissionedAt = now;
+  });
+
+  if (stage && stage !== order.stage) {
+    await logAudit("install_order", order.id, `stage_${stage}`, agentId ? "agent" : "system", agentId, {
+      reference,
+      priorStage: order.stage,
+    });
+  } else if (extras?.quoteAmount != null || extras?.depositAmount != null) {
+    await logAudit("install_order", order.id, "amounts_updated", agentId ? "agent" : "system", agentId, {
+      reference,
+      quoteAmount: extras.quoteAmount,
+      depositAmount: extras.depositAmount,
+    });
+  }
+
+  return {
+    data: {
+      reference,
+      stage: nextStage,
+      commissionedAt: nextStage === "commissioned" ? now : order.commissionedAt,
+    },
+    status: 200 as const,
+  };
 }
 
 export async function createBooking(input: CreateBookingInput) {
@@ -394,6 +606,7 @@ export async function listBookings(filters?: {
 
 export async function getDashboardStats() {
   await ensureSeeded();
+  const ev = await getEvDashboardStats();
   const today = getLocalDateString();
   const store = await getStore();
   const allBookings = store.bookings;
@@ -403,18 +616,81 @@ export async function getDashboardStats() {
   const lastMileReady = (await listLastMileDeliveries({ bucket: "ready" })).length;
 
   return {
-    totalBookings: allBookings.length,
-    todayBookings: passengerBookings.filter((b) => b.createdAt.startsWith(today)).length,
-    paidBookings: allBookings.filter((b) => b.status === "paid").length,
-    pendingBookings: allBookings.filter((b) => b.status === "pending").length,
-    totalRevenue: allBookings
-      .filter((b) => b.status === "paid")
-      .reduce((sum, b) => sum + b.totalAmount, 0),
-    agentBookings: allBookings.filter((b) => b.channel.startsWith("agent_")).length,
-    cargoBookings: cargoBookings.length,
-    todayCargo: cargoBookings.filter((b) => b.createdAt.startsWith(today)).length,
-    activeDeliveries,
-    lastMileReady,
+    ...ev,
+    legacy: {
+      totalBookings: allBookings.length,
+      todayBookings: passengerBookings.filter((b) => b.createdAt.startsWith(today)).length,
+      paidBookings: allBookings.filter((b) => b.status === "paid").length,
+      pendingBookings: allBookings.filter((b) => b.status === "pending").length,
+      totalRevenue: allBookings
+        .filter((b) => b.status === "paid")
+        .reduce((sum, b) => sum + b.totalAmount, 0),
+      agentBookings: allBookings.filter((b) => b.channel.startsWith("agent_")).length,
+      cargoBookings: cargoBookings.length,
+      todayCargo: cargoBookings.filter((b) => b.createdAt.startsWith(today)).length,
+      activeDeliveries,
+      lastMileReady,
+    },
+  };
+}
+
+export async function listInstallOrders(filters?: { stage?: InstallStage }) {
+  await ensureSeeded();
+  const store = await getStore();
+  let orders = [...(store.installOrders ?? [])];
+  if (filters?.stage) {
+    orders = orders.filter((o) => o.stage === filters.stage);
+  }
+  return orders.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+export async function listChargingSessions() {
+  await ensureSeeded();
+  const store = await getStore();
+  return [...(store.chargingSessions ?? [])].sort(
+    (a, b) => b.createdAt.localeCompare(a.createdAt),
+  );
+}
+
+export async function getEvDashboardStats() {
+  await ensureSeeded();
+  const today = getLocalDateString();
+  const store = await getStore();
+  const installs = store.installOrders ?? [];
+  const sessions = store.chargingSessions ?? [];
+
+  const surveyPipeline = installs.filter((o) =>
+    ["survey_requested", "survey_scheduled", "quoted"].includes(o.stage),
+  );
+  const commissioned = installs.filter((o) => o.stage === "commissioned");
+  const lipaActive = installs.filter(
+    (o) => o.lipaPolePole && o.stage !== "commissioned" && o.depositAmount,
+  );
+  const todaySessions = sessions.filter((s) => s.createdAt.startsWith(today));
+  const completedSessions = sessions.filter((s) => s.status === "completed");
+  const kwhToday = todaySessions.reduce((sum, s) => sum + (s.kwhDelivered ?? 0), 0);
+  const sessionRevenue = completedSessions.reduce((sum, s) => sum + s.amountKes, 0);
+  const installDeposits = installs
+    .filter((o) => o.depositAmount)
+    .reduce((sum, o) => sum + (o.depositAmount ?? 0), 0);
+
+  return {
+    surveyPipeline: surveyPipeline.length,
+    surveysToday: installs.filter(
+      (o) =>
+        o.createdAt.startsWith(today) &&
+        ["survey_requested", "survey_scheduled"].includes(o.stage),
+    ).length,
+    commissionedTotal: commissioned.length,
+    commissionedToday: commissioned.filter((o) =>
+      (o.commissionedAt ?? o.updatedAt).startsWith(today),
+    ).length,
+    lipaPolePoleActive: lipaActive.length,
+    chargingSessionsToday: todaySessions.length,
+    kwhDeliveredToday: Math.round(kwhToday * 10) / 10,
+    sessionRevenueTotal: sessionRevenue,
+    installDepositsTotal: installDeposits,
+    mpesaCollectedTotal: sessionRevenue + installDeposits,
   };
 }
 

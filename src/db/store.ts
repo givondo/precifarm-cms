@@ -3,6 +3,11 @@ import path from "path";
 import crypto from "crypto";
 import { nairobiKisumuRoute } from "@/lib/route";
 import { CARGO_CAPACITY_KG } from "@/lib/cargo";
+import {
+  seedEvOpsDemo,
+  type StoreChargingSession,
+  type StoreInstallOrder,
+} from "@/lib/ev-ops";
 
 const DATA_DIR = serverlessDataDir();
 const STORE_PATH = path.join(DATA_DIR, "store.json");
@@ -192,6 +197,8 @@ export type DataStore = {
   payments: StorePayment[];
   tickets: StoreTicket[];
   auditEvents: StoreAuditEvent[];
+  installOrders: StoreInstallOrder[];
+  chargingSessions: StoreChargingSession[];
 };
 
 const emptyStore = (): DataStore => ({
@@ -208,6 +215,8 @@ const emptyStore = (): DataStore => ({
   payments: [],
   tickets: [],
   auditEvents: [],
+  installOrders: [],
+  chargingSessions: [],
 });
 
 function readStore(): DataStore {
@@ -262,6 +271,28 @@ export function normalizeStore(store: DataStore): { store: DataStore; changed: b
   }
   if (!store.riders) {
     store.riders = seedRiders(new Date().toISOString());
+    changed = true;
+  }
+  if (!store.installOrders) {
+    store.installOrders = [];
+    changed = true;
+  }
+  if (!store.chargingSessions) {
+    store.chargingSessions = [];
+    changed = true;
+  }
+
+  if (store.installOrders.length === 0 && store.chargingSessions.length === 0) {
+    const now = new Date().toISOString();
+    const demo = seedEvOpsDemo(now);
+    store.installOrders = demo.installOrders;
+    store.chargingSessions = demo.chargingSessions;
+    for (const customer of demo.customers) {
+      if (!store.customers.some((c) => c.phoneE164 === customer.phoneE164)) {
+        store.customers.push(customer);
+        changed = true;
+      }
+    }
     changed = true;
   }
 
@@ -405,6 +436,11 @@ export function seedStore(): DataStore {
   });
 
   store.riders = seedRiders(now);
+
+  const demo = seedEvOpsDemo(now);
+  store.installOrders = demo.installOrders;
+  store.chargingSessions = demo.chargingSessions;
+  store.customers.push(...demo.customers);
 
   return store;
 }

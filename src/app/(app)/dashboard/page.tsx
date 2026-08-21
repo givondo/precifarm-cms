@@ -1,37 +1,46 @@
-import { getDashboardStats, listBookings } from "@/lib/services";
+import {
+  getDashboardStats,
+  listChargingSessions,
+  listInstallOrders,
+} from "@/lib/services";
 import { formatCurrency, formatPhoneDisplay } from "@/lib/booking";
-import { parseSeats } from "@/lib/seats";
 import { getPaymentMode } from "@/lib/env";
 import { paymentModeDisplay } from "@/lib/payment-ui";
+import {
+  chargingSiteLabels,
+  installProductLabels,
+  installStageBadgeClass,
+  installStageLabels,
+} from "@/lib/ev-ops";
 import Link from "next/link";
-import { BookingStatusBadge } from "@/components/ui/BookingStatusBadge";
 
 const quickLinks = [
   {
-    href: "/quick-book",
-    title: "Quick Book",
-    desc: "Passenger tickets · cash or M-Pesa Express STK",
+    href: "/installs",
+    title: "Home installs",
+    desc: "Pulse, Pod and Spark — survey to commissioning",
   },
   {
-    href: "/cargo-book",
-    title: "Cargo Book",
-    desc: "Waybills · last mile (+KSh 500) · National ID required",
+    href: "/charging-sessions",
+    title: "Charging sessions",
+    desc: "Corridor DC, Depot, Boda Hub — kWh and M-Pesa",
   },
   {
-    href: "/delivery",
-    title: "Delivery tracking",
-    desc: "Advance cargo stages and send SMS updates",
+    href: "/customers",
+    title: "Customers",
+    desc: "Lookup by phone, install ref or session ref",
   },
   {
-    href: "/last-mile",
-    title: "Last mile",
-    desc: "Assign riders and dispatch door delivery",
+    href: "/reconciliation",
+    title: "M-Pesa reconciliation",
+    desc: "Deposits, instalments and session payments",
   },
 ];
 
 export default async function DashboardPage() {
   const stats = await getDashboardStats();
-  const recent = (await listBookings()).slice(0, 8);
+  const recentInstalls = (await listInstallOrders()).slice(0, 5);
+  const recentSessions = (await listChargingSessions()).slice(0, 5);
   const payment = paymentModeDisplay(getPaymentMode());
 
   return (
@@ -40,7 +49,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Nairobi–Kisumu · Passenger & cargo operations
+            EV charging — home installs, public sessions and M-Pesa
           </p>
         </div>
         <div
@@ -58,47 +67,50 @@ export default async function DashboardPage() {
       </div>
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-        Passenger
+        Home charging pipeline
       </h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Link href="/installs" className="stat-card hover:border-green-300 transition-colors">
+          <div className="label">Survey pipeline</div>
+          <div className="value">{stats.surveyPipeline}</div>
+        </Link>
         <div className="stat-card">
-          <div className="label">Today&apos;s tickets</div>
-          <div className="value">{stats.todayBookings}</div>
+          <div className="label">Surveys today</div>
+          <div className="value">{stats.surveysToday}</div>
         </div>
+        <Link href="/installs" className="stat-card hover:border-green-300 transition-colors">
+          <div className="label">Commissioned (total)</div>
+          <div className="value">{stats.commissionedTotal}</div>
+        </Link>
         <div className="stat-card">
-          <div className="label">Paid bookings</div>
-          <div className="value">{stats.paidBookings}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Revenue (paid)</div>
-          <div className="value text-lg">{formatCurrency(stats.totalRevenue)}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Agent bookings</div>
-          <div className="value">{stats.agentBookings}</div>
+          <div className="label">Lipa Pole Pole active</div>
+          <div className="value">{stats.lipaPolePoleActive}</div>
         </div>
       </div>
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-        Cargo & delivery
+        Public charging
       </h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Link
+          href="/charging-sessions"
+          className="stat-card hover:border-green-300 transition-colors"
+        >
+          <div className="label">Sessions today</div>
+          <div className="value">{stats.chargingSessionsToday}</div>
+        </Link>
         <div className="stat-card">
-          <div className="label">Cargo waybills</div>
-          <div className="value">{stats.cargoBookings}</div>
+          <div className="label">kWh delivered today</div>
+          <div className="value">{stats.kwhDeliveredToday}</div>
         </div>
         <div className="stat-card">
-          <div className="label">Today&apos;s cargo</div>
-          <div className="value">{stats.todayCargo}</div>
+          <div className="label">Session revenue</div>
+          <div className="value text-lg">{formatCurrency(stats.sessionRevenueTotal)}</div>
         </div>
-        <Link href="/delivery" className="stat-card hover:border-green-300 transition-colors">
-          <div className="label">Active deliveries</div>
-          <div className="value">{stats.activeDeliveries}</div>
-        </Link>
-        <Link href="/last-mile" className="stat-card hover:border-green-300 transition-colors">
-          <div className="label">Last mile ready</div>
-          <div className="value">{stats.lastMileReady}</div>
-        </Link>
+        <div className="stat-card">
+          <div className="label">Install deposits</div>
+          <div className="value text-lg">{formatCurrency(stats.installDepositsTotal)}</div>
+        </div>
       </div>
 
       <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
@@ -113,69 +125,102 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Recent bookings</h2>
-        <Link href="/bookings" className="text-sm text-green-800 hover:underline">
-          View all
-        </Link>
-      </div>
-
-      <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Reference</th>
-              <th>Type</th>
-              <th>Customer</th>
-              <th>Route</th>
-              <th>Date / Time</th>
-              <th>Detail</th>
-              <th>Amount</th>
-              <th>Channel</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recent.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="text-center text-gray-400 py-8">
-                  No bookings yet. Create one from Quick Book or Cargo Book.
-                </td>
-              </tr>
-            ) : (
-              recent.map(({ booking, trip, route }) => (
-                <tr key={booking.id}>
-                  <td className="font-mono text-xs font-medium">{booking.reference}</td>
-                  <td className="text-xs capitalize text-gray-500">
-                    {booking.bookingType === "cargo" ? "Cargo" : "Passenger"}
-                  </td>
-                  <td>
-                    <div className="font-medium">{booking.contactName}</div>
-                    <div className="text-xs text-gray-500">
-                      {formatPhoneDisplay(booking.contactPhone)}
-                    </div>
-                  </td>
-                  <td className="text-sm">{route.label}</td>
-                  <td className="text-sm whitespace-nowrap">
-                    {trip.travelDate}
-                    <br />
-                    <span className="text-gray-500">{trip.departureTime}</span>
-                  </td>
-                  <td className="text-sm">
-                    {booking.bookingType === "cargo"
-                      ? "Waybill"
-                      : parseSeats(booking.seats).join(", ")}
-                  </td>
-                  <td className="font-medium">{formatCurrency(booking.totalAmount)}</td>
-                  <td className="text-xs text-gray-500">{booking.channel}</td>
-                  <td>
-                    <BookingStatusBadge status={booking.status} />
-                  </td>
+      <div className="grid lg:grid-cols-2 gap-8">
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Recent install orders</h2>
+            <Link href="/installs" className="text-sm text-green-800 hover:underline">
+              View all
+            </Link>
+          </div>
+          <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Product</th>
+                  <th>City</th>
+                  <th>Stage</th>
+                  <th>Customer</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {recentInstalls.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center text-gray-400 py-8">
+                      No install orders yet.
+                    </td>
+                  </tr>
+                ) : (
+                  recentInstalls.map((order) => (
+                    <tr key={order.id}>
+                      <td className="font-mono text-xs">{order.reference}</td>
+                      <td className="text-sm">{installProductLabels[order.product]}</td>
+                      <td className="text-sm">{order.city}</td>
+                      <td>
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${installStageBadgeClass[order.stage]}`}
+                        >
+                          {installStageLabels[order.stage]}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="font-medium text-sm">{order.contactName}</div>
+                        <div className="text-xs text-gray-500">
+                          {formatPhoneDisplay(order.contactPhone)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Recent charging sessions</h2>
+            <Link href="/charging-sessions" className="text-sm text-green-800 hover:underline">
+              View all
+            </Link>
+          </div>
+          <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Site</th>
+                  <th>kWh</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentSessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="text-center text-gray-400 py-8">
+                      No charging sessions yet.
+                    </td>
+                  </tr>
+                ) : (
+                  recentSessions.map((session) => (
+                    <tr key={session.id}>
+                      <td className="font-mono text-xs">{session.reference}</td>
+                      <td className="text-sm">
+                        {chargingSiteLabels[session.siteType]}
+                        <div className="text-xs text-gray-500">{session.siteName}</div>
+                      </td>
+                      <td className="text-sm">{session.kwhDelivered ?? "—"}</td>
+                      <td className="font-medium">{formatCurrency(session.amountKes)}</td>
+                      <td className="text-sm capitalize">{session.status}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );

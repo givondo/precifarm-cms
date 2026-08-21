@@ -129,7 +129,7 @@ See [STORAGE.md](./STORAGE.md) and [ecosystem database.md](../../kenya-ebus-ecos
 
 ### SEO content language (2026-07-30)
 
-Seeded guides/FAQ should prefer **electric bus / buses**, Charge Map, private house charging, and Android app (iOS not available). Align with ecosystem [CANON.md](../../kenya-ebus-ecosystem/docs/CANON.md) v2.1+.
+Seeded guides/FAQ should prefer **EV charging** (home, fleet, highway), Charging Hub, Pulse/Pod/Corridor names, and Android app (iOS not available). Align with ecosystem [CANON.md](../../kenya-ebus-ecosystem/docs/CANON.md).
 
 ---
 

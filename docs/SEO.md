@@ -45,7 +45,7 @@ Website proxy: `GET /api/search?q=` → CMS semantic search.
 | Topic | Convention |
 |---|---|
 | Vehicles | Prefer **electric bus / buses** (not coach) |
-| Charging | Charge Map, route hubs, private house charging |
+| Charging | Charging Hub, home charging, highway charging, Pulse / Pod / Corridor |
 | App | Android APK via website; **iOS not available** |
 | Canon | Align with ecosystem [CANON.md](../../kenya-ebus-ecosystem/docs/CANON.md) v2.1+ |
 

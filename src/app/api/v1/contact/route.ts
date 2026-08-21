@@ -5,6 +5,7 @@ import { insertAnalyticsEvent } from "@/lib/analytics/ingest";
 import { getClientIp, checkRateLimit } from "@/lib/api/rate-limit";
 import { apiError, apiOk } from "@/lib/api/responses";
 import { validateContactInput } from "@/lib/contact";
+import { createInstallSurveyFromLead } from "@/lib/services";
 
 const CONTACT_LIMIT = 5;
 const CONTACT_WINDOW_MS = 60_000;
@@ -68,5 +69,20 @@ export async function POST(request: Request) {
     },
   });
 
-  return apiOk({ id: row.id, received: true }, 201);
+  const install = await createInstallSurveyFromLead({
+    ...input,
+    contactSubmissionId: row.id,
+  });
+
+  const installOrder = !install.skipped
+    ? {
+        reference: install.reference,
+        product: install.product,
+        stage: install.stage,
+      }
+    : install.reason === "duplicate_today"
+      ? { reference: install.reference, duplicate: true }
+      : null;
+
+  return apiOk({ id: row.id, received: true, installOrder }, 201);
 }

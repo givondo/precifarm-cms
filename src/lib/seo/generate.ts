@@ -36,7 +36,7 @@ export async function generateContentDraft(input: {
   const model = DEFAULT_MODEL;
   const siteContext =
     input.context ??
-    "Precifarm builds EV charging hubs and operates electric intercity bus service in Kenya (Nairobi–Kisumu).";
+    "Precifarm designs, finances, installs and operates EV charging in Kenya — Pulse and Pod home chargers, Corridor DC, Boda Hub swap and M-Pesa on every product.";
 
   const systemPrompt = `You are an SEO content writer for Precifarm, a Kenyan electric transport company.
 Write accurate, helpful content for humans and AI search engines. Use markdown for body.

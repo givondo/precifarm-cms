@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Precifarm Ticketing CMS",
-  description: "Booking, ticketing and payment operations for Precifarm routes",
+  title: "Precifarm EV Charging CMS",
+  description: "Home installs, public charging sessions and M-Pesa operations for Precifarm Kenya",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

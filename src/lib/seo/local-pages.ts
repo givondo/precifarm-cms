@@ -132,37 +132,39 @@ export async function upsertDefaultLocalTemplate() {
       name: "EV Charging Hub — City",
       contentType: "local_page",
       slugPattern: "ev-charging-{slug}",
-      titleTemplate: "EV charging hubs in {city}, Kenya",
+      titleTemplate: "EV charging in {city}, Kenya — Precifarm",
       descriptionTemplate:
-        "Find electric vehicle charging at Precifarm network hubs serving {city} and {county}. Fast DC charging for buses and fleets.",
+        "Home Pulse and Pod charging, Corridor DC and Boda Hub in {city}, {county}. Public DC from KES 39/kWh — M-Pesa on every product.",
       bodyTemplate: `## EV charging in {city}
 
-Precifarm operates route hub charging infrastructure connected to {city} and surrounding {county} corridors.
+Precifarm installs, finances and operates EV charging in {city} and {county} — home **Pulse** and **Pod** chargers, **Corridor DC** on intercity routes and **Boda Hub** swap where live.
 
-### What we offer
+### Home charging
 
-- DC fast charging for intercity electric buses
-- Reserved charging windows for fleet partners
-- Integration with Nairobi–Kisumu and expanding routes
+The **Pulse charger** starts from **KES 79,000** with Lipa Pole Pole on M-Pesa. A typical driving day of about 60 km costs about **KES 140** in home electricity versus about **KES 850** in petrol.
 
-### Plan your trip
+Request a survey at [precifarm.com/charging/private-house](https://precifarm.com/charging/private-house).
 
-Book intercity electric bus seats online or contact us about hub charging for your fleet.`,
+### Public and corridor charging
+
+Public DC at Depot and Corridor sites starts from **KES 39/kWh**. Find live chargers on the [Charging Hub](https://precifarm.com/network).`,
       aisoTemplate: [
         {
           id: "summary",
           type: "executive_summary",
           title: "EV charging in {city}",
-          content: "Precifarm hub charging supports electric travel through {city}, {county}.",
+          content:
+            "Precifarm home Pulse and Pod, Corridor DC and Boda Hub in {city}, {county}. Public DC from KES 39/kWh.",
         },
         {
           id: "facts",
           type: "key_facts",
           title: "Key facts",
           items: [
-            { label: "City", value: "{city}" },
-            { label: "County", value: "{county}" },
-            { label: "Service", value: "DC fast charging" },
+            "City: {city}",
+            "County: {county}",
+            "Pulse from KES 79,000 · public DC from KES 39/kWh",
+            "Charging Hub: precifarm.com/network",
           ],
         },
       ],
