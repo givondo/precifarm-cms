@@ -7,8 +7,12 @@ import {
   processStkPayment,
 } from "@/lib/services";
 import type { CreateBookingInput } from "@/lib/booking";
+import { bookingRetiredResponse } from "@/lib/api/booking-gate";
 
 export async function POST(request: Request) {
+  const retired = bookingRetiredResponse();
+  if (retired) return retired;
+
   const agent = await getSessionAgent();
   if (!agent) {
     return NextResponse.json(
