@@ -109,7 +109,7 @@ Agent login. Sets an HTTP-only session cookie (8-hour TTL). Used by the agent de
 ```json
 {
   "email": "agent@precifarm.com",
-  "password": "precifarm2026"
+  "password": "<agent password>"
 }
 ```
 
@@ -144,7 +144,7 @@ From scripts (curl example):
 ```bash
 curl -c cookies.txt -X POST http://localhost:3002/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"agent@precifarm.com","password":"precifarm2026"}'
+  -d '{"email":"agent@precifarm.com","password":"<agent password>"}'
 
 curl -b cookies.txt http://localhost:3002/api/v1/ops/cargo/deliveries
 ```

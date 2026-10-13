@@ -73,4 +73,4 @@ npm run typecheck
 npm run lint
 ```
 
-Demo login: `agent@precifarm.com` / `precifarm2026`
+Demo login: `agent@precifarm.com` with `SEED_AGENT_PASSWORD` (or the random password printed to the dev console on first seed).

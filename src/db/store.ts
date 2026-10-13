@@ -3,6 +3,7 @@ import path from "path";
 import crypto from "crypto";
 import { nairobiKisumuRoute } from "@/lib/route";
 import { CARGO_CAPACITY_KG } from "@/lib/cargo";
+import { hashPassword, resolveSeedPassword } from "@/lib/security/password";
 import {
   seedEvOpsDemo,
   type StoreChargingSession,
@@ -100,6 +101,7 @@ export type StoreCustomer = {
 export type StoreAgent = {
   id: string;
   email: string;
+  /** scrypt hash (`scrypt$N$r$p$salt$hash`). Legacy rows may still hold plaintext. */
   password: string;
   name: string;
   role: string;
@@ -416,7 +418,7 @@ export function seedStore(): DataStore {
   store.agents.push({
     id: crypto.randomUUID(),
     email: "agent@precifarm.com",
-    password: "precifarm2026",
+    password: hashPassword(resolveSeedPassword("SEED_AGENT_PASSWORD", "agent@precifarm.com")),
     name: "Jane Agent",
     role: "agent",
     branch: "Nairobi",
@@ -427,7 +429,7 @@ export function seedStore(): DataStore {
   store.agents.push({
     id: crypto.randomUUID(),
     email: "admin@precifarm.com",
-    password: "precifarm2026",
+    password: hashPassword(resolveSeedPassword("SEED_ADMIN_PASSWORD", "admin@precifarm.com")),
     name: "System Admin",
     role: "admin",
     branch: "Nairobi",
