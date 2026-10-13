@@ -42,7 +42,16 @@ export async function resolve(specifier, context, nextResolve) {
     const found = await resolveTsPath(candidate);
     if (found) return { url: pathToFileURL(found).href, shortCircuit: true };
   }
-  return nextResolve(specifier, context);
+  try {
+    return await nextResolve(specifier, context);
+  } catch (err) {
+    // Packages without an "exports" map (for example next/server) need the .js suffix under ESM.
+    const isBareSubpath = !specifier.startsWith(".") && !specifier.startsWith("/") && specifier.includes("/");
+    if (err?.code === "ERR_MODULE_NOT_FOUND" && isBareSubpath && !/\.[cm]?js$/.test(specifier)) {
+      return nextResolve(`${specifier}.js`, context);
+    }
+    throw err;
+  }
 }
 
 export async function load(url, context, nextLoad) {

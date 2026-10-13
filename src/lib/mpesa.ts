@@ -1,4 +1,9 @@
 import { isDemoPayment, mpesaApiBaseUrl, mpesaEnv } from "@/lib/env";
+import {
+  buildCallbackUrl,
+  getCallbackToken,
+  isProductionPayments,
+} from "@/lib/security/mpesa-callback";
 
 export type StkBooking = {
   id: string;
@@ -69,6 +74,16 @@ export async function initiateStkPush(booking: StkBooking): Promise<StkInitResul
     };
   }
 
+  const callbackToken = getCallbackToken();
+  if (!callbackToken && isProductionPayments()) {
+    return {
+      status: "failed",
+      reference: booking.reference,
+      message: "M-Pesa callback token is not configured.",
+    };
+  }
+  const authenticatedCallbackUrl = buildCallbackUrl(callbackUrl, callbackToken);
+
   const baseUrl = mpesaApiBaseUrl();
 
   const authResponse = await fetch(
@@ -121,7 +136,7 @@ export async function initiateStkPush(booking: StkBooking): Promise<StkInitResul
       PartyA: booking.phone,
       PartyB: shortcode,
       PhoneNumber: booking.phone,
-      CallBackURL: callbackUrl,
+      CallBackURL: authenticatedCallbackUrl,
       AccountReference: booking.reference,
       TransactionDesc: `Precifarm ${booking.from}-${booking.to}`,
     }),

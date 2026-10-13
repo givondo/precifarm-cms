@@ -23,6 +23,7 @@ import {
 } from "@/lib/cargo";
 import { logSms } from "@/lib/sms";
 import { logAudit } from "@/lib/audit";
+import { redactPhones } from "@/lib/security/redact";
 import {
   trackBookingCreated,
   trackBookingPaid,
@@ -986,6 +987,26 @@ export async function processStkPayment(bookingId: string) {
   };
 }
 
+/** Payment states after which a callback must not change anything (idempotent replay). */
+const TERMINAL_PAYMENT_STATUSES = new Set(["completed", "failed", "flagged", "refunded"]);
+
+async function flagPayment(paymentId: string, reason: string) {
+  await mutateStore((s) => {
+    const p = s.payments.find((x) => x.id === paymentId);
+    if (p && p.status === "pending") {
+      p.status = "flagged";
+      p.failureReason = reason;
+    }
+  });
+  await logAudit("payment", paymentId, "mpesa_callback_flagged", "webhook", undefined, { reason });
+}
+
+/**
+ * Applies an authenticated Daraja STK callback. The caller (route) must already have
+ * verified the shared callback token. Marks the booking paid only when the result is
+ * successful, a receipt is present, and the amount and MSISDN match the payment record.
+ * Replays of an already processed callback are no-ops.
+ */
 export async function handleMpesaCallback(body: MpesaCallbackBody) {
   const parsed = parseMpesaCallback(body);
   if (!parsed) return { error: "Invalid callback payload.", status: 400 as const };
@@ -996,23 +1017,35 @@ export async function handleMpesaCallback(body: MpesaCallbackBody) {
     (p) => p.mpesaCheckoutId === parsed.checkoutRequestId && p.method === "mpesa"
   );
 
-  await logAudit("payment", payment?.id ?? parsed.checkoutRequestId, "mpesa_callback", "webhook", undefined, body);
+  await logAudit(
+    "payment",
+    payment?.id ?? parsed.checkoutRequestId,
+    "mpesa_callback",
+    "webhook",
+    undefined,
+    redactPhones(body)
+  );
 
   if (!payment) {
     return { error: "Payment not found for checkout request.", status: 404 as const };
   }
 
-  if (payment.status === "completed") {
+  if (TERMINAL_PAYMENT_STATUSES.has(payment.status)) {
+    return { data: { status: "already_processed" }, status: 200 as const };
+  }
+
+  const booking = store.bookings.find((b) => b.id === payment.bookingId);
+  if (booking?.status === "paid") {
     return { data: { status: "already_processed" }, status: 200 as const };
   }
 
   if (!parsed.success) {
     await mutateStore((s) => {
       const p = s.payments.find((x) => x.id === payment.id)!;
+      if (p.status !== "pending") return;
       p.status = "failed";
       p.failureReason = parsed.resultDesc;
     });
-    const booking = store.bookings.find((b) => b.id === payment.bookingId);
     if (booking) {
       trackPaymentFailed({
         bookingId: booking.id,
@@ -1026,11 +1059,49 @@ export async function handleMpesaCallback(body: MpesaCallbackBody) {
     return { data: { status: "failed", reason: parsed.resultDesc }, status: 200 as const };
   }
 
-  return await completePayment(payment.bookingId, "mpesa", {
+  const mismatches: string[] = [];
+  if (!parsed.mpesaReceipt) mismatches.push("missing_receipt");
+  if (parsed.amount === undefined || !Number.isFinite(parsed.amount) || parsed.amount !== Number(payment.amount)) {
+    mismatches.push("amount_mismatch");
+  }
+  const paidPhone = parsed.phone ? normalizeKenyanPhone(parsed.phone) : null;
+  const expectedPhone = payment.mpesaPhone ? normalizeKenyanPhone(payment.mpesaPhone) : null;
+  if (!paidPhone || !expectedPhone || paidPhone !== expectedPhone) {
+    mismatches.push("phone_mismatch");
+  }
+  if (
+    parsed.mpesaReceipt &&
+    store.payments.some((p) => p.id !== payment.id && p.mpesaReceipt === parsed.mpesaReceipt)
+  ) {
+    mismatches.push("receipt_reused");
+  }
+
+  if (mismatches.length > 0) {
+    const reason = mismatches.join(",");
+    await flagPayment(payment.id, reason);
+    if (booking) {
+      trackPaymentFailed({
+        bookingId: booking.id,
+        reference: booking.reference,
+        customerId: booking.customerId,
+        channel: booking.channel,
+        method: "mpesa",
+        failureCode: "mpesa_callback_flagged",
+      });
+    }
+    return { data: { status: "flagged", reason }, status: 200 as const };
+  }
+
+  const result = await completePayment(payment.bookingId, "mpesa", {
     isDemo: false,
     mpesaReceipt: parsed.mpesaReceipt,
     existingPaymentId: payment.id,
   });
+  if ("error" in result && result.status === 409) {
+    // Concurrent replay completed it first.
+    return { data: { status: "already_processed" }, status: 200 as const };
+  }
+  return result;
 }
 
 export async function getPaymentStatus(bookingId: string) {
