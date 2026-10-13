@@ -102,8 +102,8 @@ export async function getAnalyticsDashboard(periodDays = 30): Promise<AnalyticsD
   let acquisition: { source: string; sessions: number }[] = [];
   let activeUsersToday = 0;
   let topEventsToday: { eventName: string; count: number }[] = [];
-  let paymentHealth = { succeeded: 0, failed: 0, successRate: null as number | null };
-  let errors = {
+  const paymentHealth = { succeeded: 0, failed: 0, successRate: null as number | null };
+  const errors = {
     today: 0,
     period: 0,
     byCategory: [] as { category: string; count: number }[],
