@@ -56,6 +56,14 @@ From master document §8 launch standards:
 | M-Pesa STK | Implicit verification (payment proves phone ownership) |
 | Phone OTP | PWA account login (Phase B) |
 
+### Implementation notes (CMS, October 2026)
+
+- Session cookie is an HMAC-SHA256 signed token (agent id and expiry) keyed by `SESSION_SECRET`; `httpOnly`, `sameSite=lax`, `secure` in production. Logins fail closed without the secret.
+- Agent passwords are stored as `scrypt$N$r$p$salt$hash`. Legacy plaintext is rejected unless `ALLOW_LEGACY_PLAINTEXT=true`, in which case it is upgraded on successful login. Rotate with `npm run agents:set-password`.
+- Seed accounts take passwords from `SEED_ADMIN_PASSWORD` and `SEED_AGENT_PASSWORD`; none are hardcoded.
+- Agent ids are not sent to product analytics.
+- Booking routes (creation, seats, STK) return HTTP 410 unless `BOOKING_ENABLED=true`.
+
 Customers do not have passwords in Phase A. Booking lookup by reference + phone.
 
 ### Service accounts (website → CMS)
@@ -138,9 +146,12 @@ Customers do not have passwords in Phase A. Booking lookup by reference + phone.
 ### M-Pesa
 
 - Credentials stored in environment variables only (never in code or database)
-- Callback endpoint validates Safaricom source IP
-- Idempotency keys prevent duplicate processing
-- Full callback payload stored in audit log
+- Callback endpoint requires the shared `MPESA_CALLBACK_TOKEN` in the `token` query parameter (constant time compare); STK push appends it to `CallBackURL`. Production rejects callbacks when the token is unset.
+- Optional source IP allowlist via `MPESA_CALLBACK_ALLOWED_IPS`
+- A successful callback marks a booking paid only if a receipt is present and the amount and MSISDN match the payment record; mismatches or reused receipts set the payment to `flagged` for ops review
+- Callbacks are idempotent: replays for a completed, failed or flagged payment change nothing
+- Callback payload stored in audit log with phone numbers masked to the last 3 digits
+- STK push is rate limited (5 per minute per IP)
 - Demo mode clearly flagged (`is_demo = true`) to prevent accounting confusion
 
 ### Cash

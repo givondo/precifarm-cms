@@ -44,6 +44,8 @@ Create secrets from your local `.env` — **never paste values into docs**:
 | `precifarm-mpesa-shortcode` | `MPESA_SHORTCODE` |
 | `precifarm-mpesa-callback-url` | `MPESA_CALLBACK_URL` |
 | `precifarm-mpesa-environment` | `MPESA_ENVIRONMENT` |
+| `precifarm-session-secret` | `SESSION_SECRET` (32+ random chars; agent logins return 503 without it) |
+| `precifarm-mpesa-callback-token` | `MPESA_CALLBACK_TOKEN` (random; callbacks and STK push are refused without it) |
 
 Optional (analytics / SEO):
 
