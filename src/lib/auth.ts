@@ -1,5 +1,6 @@
 import { getStore, ensureSeeded } from "@/db";
 import type { StoreAgent } from "@/db/store";
+import { getSessionSecret, verifySessionToken } from "@/lib/security/session";
 
 export const SESSION_COOKIE = "precifarm_agent_session";
 
@@ -9,8 +10,11 @@ export async function getSessionAgent(): Promise<SessionAgent | null> {
   await ensureSeeded();
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
-  const agentId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!agentId) return null;
+  const secret = getSessionSecret();
+  if (!secret) return null;
+  const session = verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value, secret);
+  if (!session) return null;
+  const agentId = session.sub;
 
   const store = await getStore();
   const agent = store.agents.find((a) => a.id === agentId && a.isActive);
