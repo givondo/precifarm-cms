@@ -3,11 +3,24 @@ import { cookies } from "next/headers";
 import { authenticateAgent, SESSION_COOKIE } from "@/lib/auth";
 import { trackCmsAudit, trackServerEvent } from "@/lib/analytics";
 import { getSessionSecret, sessionCookieOptions, signSessionToken } from "@/lib/security/session";
+import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
+
+/** Login attempts per client IP per window, to slow password guessing. */
+const LOGIN_LIMIT = 10;
+const LOGIN_WINDOW_MS = 15 * 60_000;
 
 export async function POST(request: Request) {
   const secret = getSessionSecret();
   if (!secret) {
     return NextResponse.json({ error: "Login is unavailable: session secret not configured." }, { status: 503 });
+  }
+
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Try again in 15 minutes." },
+      { status: 429, headers: { "Retry-After": String(LOGIN_WINDOW_MS / 1000) } }
+    );
   }
 
   let body: unknown;
