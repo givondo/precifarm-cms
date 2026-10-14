@@ -1,6 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -207,4 +207,33 @@ test("valid callback marks the booking paid, redacts phone in audit, and replay 
     s.store.payments.filter((p) => p.bookingId === bookingId && p.status === "completed").length,
     1
   );
+});
+
+function smsLogEntriesFor(bookingId: string): number {
+  const file = path.join(process.cwd(), "data", "sms.log");
+  if (!existsSync(file)) return 0;
+  return readFileSync(file, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .filter((line) => JSON.parse(line).bookingId === bookingId).length;
+}
+
+test("two concurrent valid callbacks complete the payment exactly once", async () => {
+  const { bookingId, paymentId, checkoutId } = await createPendingPayment();
+  const body = callbackBody(checkoutId, { receipt: "RACERCPT01" });
+
+  const [a, b] = await Promise.all([post(body, TOKEN), post(body, TOKEN)]);
+  assert.equal(a.status, 200);
+  assert.equal(b.status, 200);
+
+  const s = await state(bookingId, paymentId);
+  assert.equal(s.booking.status, "paid");
+  assert.equal(s.payment.status, "completed");
+  assert.equal(s.store.tickets.filter((t) => t.bookingId === bookingId).length, 1, "one ticket");
+  assert.equal(
+    s.store.auditEvents.filter((e) => e.entityId === paymentId && e.action === "completed").length,
+    1,
+    "one completion audit entry"
+  );
+  assert.equal(smsLogEntriesFor(bookingId), 1, "one SMS");
 });

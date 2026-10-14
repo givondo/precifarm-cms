@@ -465,9 +465,21 @@ export async function completePayment(
           total: booking.totalAmount,
         });
 
+  // The snapshot above was read outside the store lock. Re-check inside the mutator so
+  // that two concurrent completions (for example duplicate Daraja callbacks) cannot both
+  // write, and only run side effects (ticket, audit, SMS) when this call did the write.
+  let applied = false;
   await mutateStore((s) => {
-    if (options.existingPaymentId) {
-      const p = s.payments.find((x) => x.id === options.existingPaymentId)!;
+    const current = s.bookings.find((b) => b.id === bookingId);
+    if (!current || current.status === "paid") return;
+    const existing = options.existingPaymentId
+      ? s.payments.find((x) => x.id === options.existingPaymentId)
+      : undefined;
+    if (options.existingPaymentId && (!existing || existing.status !== "pending")) return;
+    applied = true;
+
+    if (existing) {
+      const p = existing;
       p.status = "completed";
       p.mpesaReceipt = method === "mpesa" ? receipt : undefined;
       p.completedAt = now;
@@ -488,7 +500,7 @@ export async function completePayment(
       });
     }
 
-    const bk = s.bookings.find((b) => b.id === bookingId)!;
+    const bk = current;
     bk.status = "paid";
     bk.paidAt = now;
     bk.updatedAt = now;
@@ -514,6 +526,8 @@ export async function completePayment(
       c.deliveryStatusUpdatedAt = now;
     }
   });
+
+  if (!applied) return { error: "Booking already paid.", status: 409 as const };
 
   await logAudit("payment", paymentId, "completed", options.agentId ? "agent" : "system", options.agentId, {
     method,
