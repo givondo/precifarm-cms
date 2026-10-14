@@ -22,6 +22,10 @@ before(async () => {
   const stk = await import("../src/app/api/v1/payments/stk/route");
   const routeSeats = await import("../src/app/api/v1/routes/[routeId]/seats/route");
   const tripSeats = await import("../src/app/api/v1/trips/[tripId]/seats/route");
+  const bookingByRef = await import("../src/app/api/v1/bookings/[reference]/route");
+  const paymentStatus = await import("../src/app/api/v1/payments/[bookingId]/status/route");
+  const cash = await import("../src/app/api/v1/payments/cash/route");
+  const routeTrips = await import("../src/app/api/v1/routes/[routeId]/trips/route");
   stkPost = stk.POST;
 
   handlers = [
@@ -48,6 +52,31 @@ before(async () => {
       call: () =>
         tripSeats.GET(new Request("http://localhost/api/v1/trips/t1/seats"), {
           params: Promise.resolve({ tripId: "t1" }),
+        }),
+    },
+    {
+      name: "GET /bookings/:reference",
+      call: () =>
+        bookingByRef.GET(new Request("http://localhost/api/v1/bookings/PF-000001"), {
+          params: Promise.resolve({ reference: "PF-000001" }),
+        }),
+    },
+    {
+      name: "GET /payments/:bookingId/status",
+      call: () =>
+        paymentStatus.GET(new Request("http://localhost/api/v1/payments/b1/status"), {
+          params: Promise.resolve({ bookingId: "b1" }),
+        }),
+    },
+    {
+      name: "POST /payments/cash",
+      call: () => cash.POST(jsonRequest("http://localhost/api/v1/payments/cash", { bookingId: "b1" })),
+    },
+    {
+      name: "GET /routes/:id/trips",
+      call: () =>
+        routeTrips.GET(new Request("http://localhost/api/v1/routes/nairobi-kisumu/trips?date=2030-01-01"), {
+          params: Promise.resolve({ routeId: "nairobi-kisumu" }),
         }),
     },
   ];

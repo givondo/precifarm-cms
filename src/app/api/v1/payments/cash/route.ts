@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
+import { bookingRetiredResponse } from "@/lib/api/booking-gate";
 import { getSessionAgent } from "@/lib/auth";
 import { completePayment, getOpenCashSession } from "@/lib/services";
 
 export async function POST(request: Request) {
+  // Agents must not complete payments on retired bookings.
+  const retired = bookingRetiredResponse();
+  if (retired) return retired;
+
   const agent = await getSessionAgent();
   if (!agent) {
     return NextResponse.json(
