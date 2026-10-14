@@ -26,13 +26,23 @@ export function checkRateLimit(
 }
 
 /**
- * Client IP for rate limiting. Uses the platform header on Netlify, otherwise the
- * right-most X-Forwarded-For entry (appended by the Cloud Run front end), because
- * left-most entries are client-supplied and trivially spoofed.
+ * Client IP for rate limiting.
+ *
+ * x-nf-client-connection-ip is only trusted when running on Netlify (NETLIFY is set),
+ * where the edge overwrites it. Anywhere else, including Cloud Run, a client can send
+ * that header with any value, so it is ignored.
+ *
+ * Otherwise the right-most X-Forwarded-For entry is used. On Cloud Run with direct
+ * domain mapping the Google front end appends the real client address as the last
+ * entry, and everything to its left is client supplied and trivially spoofed. Behind
+ * an external HTTPS load balancer the load balancer appends its own entries, so the
+ * right-most entry would no longer be the client and this function must be revisited.
  */
 export function getClientIp(request: Request): string {
-  const netlify = request.headers.get("x-nf-client-connection-ip");
-  if (netlify) return netlify.trim();
+  if (process.env.NETLIFY) {
+    const netlify = request.headers.get("x-nf-client-connection-ip");
+    if (netlify) return netlify.trim();
+  }
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
     const parts = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
