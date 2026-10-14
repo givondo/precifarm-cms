@@ -1,10 +1,10 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-/** True when callbacks must be authenticated (Node production or live Daraja production). */
+/** True when callbacks must be authenticated (Node production or live Daraja production, any case). */
 export function isProductionPayments(): boolean {
   return (
     process.env.NODE_ENV === "production" ||
-    process.env.MPESA_ENVIRONMENT?.trim() === "production"
+    process.env.MPESA_ENVIRONMENT?.trim().toLowerCase() === "production"
   );
 }
 

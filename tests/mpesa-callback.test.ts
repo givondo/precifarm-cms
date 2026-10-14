@@ -77,7 +77,10 @@ async function createPendingPayment() {
   return { bookingId, paymentId, checkoutId };
 }
 
-function callbackBody(checkoutId: string, opts: { amount?: number; phone?: number; receipt?: string } = {}) {
+function callbackBody(
+  checkoutId: string,
+  opts: { amount?: number | string; phone?: number; receipt?: string } = {}
+) {
   return {
     Body: {
       stkCallback: {
@@ -236,4 +239,72 @@ test("two concurrent valid callbacks complete the payment exactly once", async (
     "one completion audit entry"
   );
   assert.equal(smsLogEntriesFor(bookingId), 1, "one SMS");
+});
+
+test("after a valid token, malformed JSON still gets HTTP 200 with ResultCode 1", async () => {
+  const url = new URL("http://localhost/api/v1/payments/mpesa/callback");
+  url.searchParams.set("token", TOKEN);
+  const res = await route.POST(
+    new Request(url, { method: "POST", headers: { "content-type": "application/json" }, body: "{not json" })
+  );
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).ResultCode, 1);
+});
+
+test("after a valid token, an unknown checkout or bad payload gets HTTP 200 with ResultCode 1", async () => {
+  const unknown = await post(callbackBody(`ws_CO_${randomUUID()}`), TOKEN);
+  assert.equal(unknown.status, 200);
+  assert.equal((await unknown.json()).ResultCode, 1);
+
+  const invalid = await post({ Body: {} }, TOKEN);
+  assert.equal(invalid.status, 200);
+  assert.equal((await invalid.json()).ResultCode, 1);
+});
+
+async function withEnv(vars: Record<string, string | undefined>, fn: () => Promise<void>) {
+  const saved = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
+  for (const [k, v] of Object.entries(vars)) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
+  try {
+    await fn();
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
+test("production with MPESA_CALLBACK_TOKEN unset fails closed with 503", async () => {
+  const { bookingId, paymentId, checkoutId } = await createPendingPayment();
+  for (const environment of ["production", "Production", " PRODUCTION "]) {
+    await withEnv({ MPESA_CALLBACK_TOKEN: undefined, MPESA_ENVIRONMENT: environment }, async () => {
+      const res = await post(callbackBody(checkoutId));
+      assert.equal(res.status, 503, `MPESA_ENVIRONMENT=${JSON.stringify(environment)}`);
+    });
+  }
+  assert.equal((await state(bookingId, paymentId)).booking.status, "pending");
+});
+
+test("a receipt already used on another payment is flagged", async () => {
+  const first = await createPendingPayment();
+  await post(callbackBody(first.checkoutId, { receipt: "REUSED0001" }), TOKEN);
+  assert.equal((await state(first.bookingId, first.paymentId)).payment.status, "completed");
+
+  const second = await createPendingPayment();
+  await post(callbackBody(second.checkoutId, { receipt: "REUSED0001" }), TOKEN);
+  const s = await state(second.bookingId, second.paymentId);
+  assert.equal(s.booking.status, "pending");
+  assert.equal(s.payment.status, "flagged");
+  assert.match(s.payment.failureReason ?? "", /receipt_reused/);
+});
+
+test("a decimal string amount equal to the expected amount matches", async () => {
+  const { bookingId, paymentId, checkoutId } = await createPendingPayment();
+  await post(callbackBody(checkoutId, { amount: `${AMOUNT}.00` }), TOKEN);
+  const s = await state(bookingId, paymentId);
+  assert.equal(s.payment.status, "completed");
+  assert.equal(s.booking.status, "paid");
 });
