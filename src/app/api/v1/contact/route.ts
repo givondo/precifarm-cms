@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request);
-  if (!checkRateLimit(ip, CONTACT_LIMIT, CONTACT_WINDOW_MS)) {
+  if (!checkRateLimit(`contact:${ip}`, CONTACT_LIMIT, CONTACT_WINDOW_MS)) {
     return apiError("RATE_LIMITED", "Too many contact submissions. Try again shortly.", 429);
   }
 
