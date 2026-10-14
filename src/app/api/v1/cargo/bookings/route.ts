@@ -7,8 +7,12 @@ import {
   processStkPayment,
 } from "@/lib/services";
 import type { CreateCargoBookingInput } from "@/lib/cargo";
+import { bookingRetiredResponse } from "@/lib/api/booking-gate";
 
 export async function POST(request: Request) {
+  const retired = bookingRetiredResponse();
+  if (retired) return retired;
+
   const agent = await getSessionAgent();
   let body: CreateCargoBookingInput & { paymentMethod?: "cash" | "mpesa" };
   try {

@@ -9,28 +9,10 @@ import {
   validateAnalyticsEvent,
 } from "@/lib/analytics";
 import type { AnalyticsEventInput } from "@/lib/analytics/types";
+import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
 
-const rateLimit = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 120;
 const RATE_WINDOW_MS = 60_000;
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimit.get(ip);
-  if (!entry || entry.resetAt < now) {
-    rateLimit.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT) return false;
-  entry.count++;
-  return true;
-}
-
-function getClientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]?.trim() ?? "unknown";
-  return request.headers.get("x-nf-client-connection-ip") ?? "unknown";
-}
 
 function checkIngestAuth(request: Request): boolean {
   const requiredKey = getAnalyticsIngestKey();
@@ -67,7 +49,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request);
-  if (!checkRateLimit(ip)) {
+  if (!checkRateLimit(`events:${ip}`, RATE_LIMIT, RATE_WINDOW_MS)) {
     return NextResponse.json(
       { error: { code: "RATE_LIMITED", message: "Too many analytics events." } },
       { status: 429 }

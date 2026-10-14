@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { getTripById, getBookedSeats } from "@/lib/services";
 import { getStore, ensureSeeded } from "@/db";
 import { ALL_SEATS } from "@/lib/seats";
+import { bookingRetiredResponse } from "@/lib/api/booking-gate";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ tripId: string }> }
 ) {
+  const retired = bookingRetiredResponse();
+  if (retired) return retired;
+
   const { tripId } = await params;
   const trip = await getTripById(tripId);
 

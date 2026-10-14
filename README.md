@@ -55,7 +55,7 @@ npm run test:stk          # Booking + M-Pesa Express STK smoke test
 npm run tunnel:mpesa      # HTTPS tunnel for local STK callbacks
 ```
 
-**Demo login:** `agent@precifarm.com` / `precifarm2026`
+**Demo login:** `agent@precifarm.com` with the password from `SEED_AGENT_PASSWORD` (or the random one printed to the dev console on first seed).
 
 > Do not run `npm run build` while the dev server is running — the build script stops port 3002 first to avoid corrupting `.next`.
 

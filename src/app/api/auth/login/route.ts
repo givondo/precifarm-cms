@@ -2,12 +2,36 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { authenticateAgent, SESSION_COOKIE } from "@/lib/auth";
 import { trackCmsAudit, trackServerEvent } from "@/lib/analytics";
+import { getSessionSecret, sessionCookieOptions, signSessionToken } from "@/lib/security/session";
+import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
+
+/** Login attempts per client IP per window, to slow password guessing. */
+const LOGIN_LIMIT = 10;
+const LOGIN_WINDOW_MS = 15 * 60_000;
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { email, password } = body as { email?: string; password?: string };
+  const secret = getSessionSecret();
+  if (!secret) {
+    return NextResponse.json({ error: "Login is unavailable: session secret not configured." }, { status: 503 });
+  }
 
-  if (!email || !password) {
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Try again in 15 minutes." },
+      { status: 429, headers: { "Retry-After": String(LOGIN_WINDOW_MS / 1000) } }
+    );
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+  const { email, password } = (body ?? {}) as { email?: unknown; password?: unknown };
+
+  if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return NextResponse.json({ error: "Email and password required." }, { status: 400 });
   }
 
@@ -20,17 +44,13 @@ export async function POST(request: Request) {
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, agent.id, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 8,
-  });
+  cookieStore.set(SESSION_COOKIE, signSessionToken(agent.id, secret), sessionCookieOptions());
 
+  // No agent identifiers in product analytics; the CMS audit log below records the actor.
   trackServerEvent(
     "cms_login_succeeded",
-    { role: agent.role, branch: agent.branch ?? "", agent_id: agent.id },
-    { platform: "cms", session_id: agent.id }
+    { role: agent.role, branch: agent.branch ?? "" },
+    { platform: "cms" }
   );
   trackCmsAudit({
     actorId: agent.id,

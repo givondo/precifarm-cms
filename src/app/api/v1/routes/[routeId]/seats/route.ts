@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { getOrCreateTrip, getBookedSeats } from "@/lib/services";
 import { ALL_SEATS } from "@/lib/seats";
+import { bookingRetiredResponse } from "@/lib/api/booking-gate";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ routeId: string }> }
 ) {
+  const retired = bookingRetiredResponse();
+  if (retired) return retired;
+
   const { routeId } = await params;
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");

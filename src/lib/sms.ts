@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { maskPhone } from "@/lib/security/redact";
 
 const SMS_LOG = path.join(process.cwd(), "data", "sms.log");
 
@@ -40,7 +41,7 @@ export function logSms(params: {
   if (process.env.NODE_ENV !== "production") {
     const who = params.recipient ? ` (${params.recipient})` : "";
     const stage = params.stage ? ` [${params.stage}]` : "";
-    console.log(`[SMS]${stage} ${params.reference} → ${params.phone}${who}`);
+    console.log(`[SMS]${stage} ${params.reference} to ${maskPhone(params.phone)}${who}`);
   }
 }
 

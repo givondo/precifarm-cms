@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
-import { createBooking, completePayment } from "@/lib/services";
+import { createBooking } from "@/lib/services";
 import type { CreateBookingInput } from "@/lib/booking";
+import { bookingRetiredResponse } from "@/lib/api/booking-gate";
 
 export async function POST(request: Request) {
+  const retired = bookingRetiredResponse();
+  if (retired) return retired;
+
   let body: CreateBookingInput;
   try {
     body = await request.json();

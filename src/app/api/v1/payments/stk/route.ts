@@ -1,7 +1,23 @@
 import { NextResponse } from "next/server";
 import { processStkPayment } from "@/lib/services";
+import { bookingRetiredResponse } from "@/lib/api/booking-gate";
+import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
+
+const STK_LIMIT = 5;
+const STK_WINDOW_MS = 60_000;
 
 export async function POST(request: Request) {
+  const retired = bookingRetiredResponse();
+  if (retired) return retired;
+
+  const ip = getClientIp(request);
+  if (!checkRateLimit(`stk:${ip}`, STK_LIMIT, STK_WINDOW_MS)) {
+    return NextResponse.json(
+      { error: { code: "RATE_LIMITED", message: "Too many payment requests. Try again shortly." } },
+      { status: 429 }
+    );
+  }
+
   let body: { bookingId?: string };
   try {
     body = await request.json();

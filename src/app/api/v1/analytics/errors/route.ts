@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request);
-  if (!checkRateLimit(ip, ERROR_LIMIT, ERROR_WINDOW_MS)) {
+  if (!checkRateLimit(`errors:${ip}`, ERROR_LIMIT, ERROR_WINDOW_MS)) {
     return NextResponse.json(
       { error: { code: "RATE_LIMITED", message: "Too many error reports." } },
       { status: 429 }

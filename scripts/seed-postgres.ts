@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../src/db/schema";
 import { seedStore } from "../src/db/store";
+import { hashPassword, resolveSeedPassword } from "../src/lib/security/password";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 if (!DATABASE_URL) {
@@ -61,14 +62,14 @@ async function main() {
     await db.insert(schema.agents).values([
       {
         email: "agent@precifarm.com",
-        passwordHash: "precifarm2026",
+        passwordHash: hashPassword(resolveSeedPassword("SEED_AGENT_PASSWORD", "agent@precifarm.com")),
         name: "Jane Agent",
         role: "agent",
         branch: "Nairobi",
       },
       {
         email: "admin@precifarm.com",
-        passwordHash: "precifarm2026",
+        passwordHash: hashPassword(resolveSeedPassword("SEED_ADMIN_PASSWORD", "admin@precifarm.com")),
         name: "System Admin",
         role: "admin",
         branch: "Nairobi",
