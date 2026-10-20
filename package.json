@@ -25,6 +25,8 @@
     "seo:refresh-stale": "npx tsx scripts/seo-refresh-stale.ts",
     "seo:competitors": "npx tsx scripts/seo-competitor-check.ts",
     "analytics:views": "node scripts/create-analytics-views.mjs",
+    "ops:kpi-counts": "npx tsx scripts/export-kpi-counts.ts",
+    "test:kpi-counts": "node --experimental-strip-types --test tests/kpi-counts.test.mjs",
     "analytics:cron": "netlify functions:invoke analytics-daily",
     "test:mpesa-auth": "node scripts/test-mpesa-auth.mjs",
     "test:stk": "node scripts/test-stk.mjs",
