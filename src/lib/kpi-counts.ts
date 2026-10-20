@@ -9,8 +9,11 @@
 
 export const KPI_COUNTS_SCHEMA = "precifarm.kpi-counts/v1";
 
-/** References created by seedEvOpsDemo() in src/lib/ev-ops.ts. Keep in step with it. */
+/** References and phones created by seedEvOpsDemo() in src/lib/ev-ops.ts. Keep in step with it (a test checks).
+ * An order is demo only when both match, so a real order that happens to get one of these references counts. */
 export const DEMO_INSTALL_REFERENCES = new Set(["PI-000041", "PI-000042", "PI-000043", "PI-000044"]);
+export const DEMO_CONTACT_PHONES = new Set(["+254712000101", "+254733000202", "+254722000303", "+254701000404"]);
+const isDemo = (o: Order) => DEMO_INSTALL_REFERENCES.has(o.reference) && DEMO_CONTACT_PHONES.has(o.contactPhone ?? "");
 
 const STAGES = ["survey_requested", "survey_scheduled", "quoted", "deposit_paid", "install_scheduled", "commissioned"] as const;
 const QUOTED = STAGES.indexOf("quoted");
@@ -20,6 +23,7 @@ type Order = {
   id: string;
   reference: string;
   stage: string;
+  contactPhone?: string;
   lipaPolePole?: boolean;
   depositAmount?: number;
   createdAt: string;
@@ -32,6 +36,7 @@ export type KpiCounts = {
   as_of: string;
   window_days: number;
   cohort_days: number;
+  cohort_lag_days: number;
   counts: {
     survey_requests_30d: number;
     quotes_issued_30d: number;
@@ -63,36 +68,41 @@ function priorStage(payload: string | undefined): string | null {
 
 /**
  * @param asOf end of the window (inclusive), ISO timestamp
- * Survey to quote uses a 90-day cohort by creation date: orders that reached "quoted" or a later stage,
- * over orders created in the cohort. A quote counts as issued when an order moves into "quoted", or
+ * Survey to quote uses a cohort by creation date, from 90 days ago up to 7 days ago so new requests have had
+ * time to be quoted: orders that ever reached "quoted" or a later stage (now, or at any time in the audit
+ * trail), over orders created in the cohort. A quote counts as issued when an order moves into "quoted", or
  * jumps from a survey stage straight to a later one.
  */
-export function computeKpiCounts(store: KpiCountsInput, asOf: string, windowDays = 30, cohortDays = 90): KpiCounts {
+export function computeKpiCounts(store: KpiCountsInput, asOf: string, windowDays = 30, cohortDays = 90, cohortLagDays = 7): KpiCounts {
   const end = Date.parse(asOf);
   if (Number.isNaN(end)) throw new Error("asOf must be an ISO date");
   const all = store.installOrders ?? [];
-  const real = all.filter((o) => !DEMO_INSTALL_REFERENCES.has(o.reference));
+  const real = all.filter((o) => !isDemo(o));
   const realIds = new Set(real.map((o) => o.id));
   const winStart = end - windowDays * DAY;
   const cohortStart = end - cohortDays * DAY;
 
   const quotedIds = new Set<string>();
+  const everQuoted = new Set<string>();
   for (const e of store.auditEvents ?? []) {
-    if (e.entityType !== "install_order" || !realIds.has(e.entityId) || !within(e.createdAt, winStart, end)) continue;
+    if (e.entityType !== "install_order" || !realIds.has(e.entityId)) continue;
     const to = e.action.startsWith("stage_") ? e.action.slice(6) : null;
     if (!to) continue;
     const toIdx = STAGES.indexOf(to as (typeof STAGES)[number]);
-    if (to === "quoted" || (toIdx > QUOTED && PRE_QUOTE.has(priorStage(e.payload) ?? ""))) quotedIds.add(e.entityId);
+    if (toIdx < QUOTED) continue;
+    if (Date.parse(e.createdAt) <= end) everQuoted.add(e.entityId);
+    if (within(e.createdAt, winStart, end) && (to === "quoted" || PRE_QUOTE.has(priorStage(e.payload) ?? ""))) quotedIds.add(e.entityId);
   }
 
-  const cohort = real.filter((o) => within(o.createdAt, cohortStart, end));
-  const reached = cohort.filter((o) => STAGES.indexOf(o.stage as (typeof STAGES)[number]) >= QUOTED).length;
+  const cohort = real.filter((o) => within(o.createdAt, cohortStart, end - cohortLagDays * DAY));
+  const reached = cohort.filter((o) => everQuoted.has(o.id) || STAGES.indexOf(o.stage as (typeof STAGES)[number]) >= QUOTED).length;
 
   return {
     schema: KPI_COUNTS_SCHEMA,
     as_of: new Date(end).toISOString(),
     window_days: windowDays,
     cohort_days: cohortDays,
+    cohort_lag_days: cohortLagDays,
     counts: {
       survey_requests_30d: real.filter((o) => within(o.createdAt, winStart, end)).length,
       quotes_issued_30d: quotedIds.size,

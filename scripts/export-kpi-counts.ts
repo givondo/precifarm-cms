@@ -34,7 +34,11 @@ async function readStoreReadOnly(): Promise<{ store: KpiCountsInput; source: str
   if (isPostgresEnabled()) {
     const { appStore } = await import("../src/db/schema");
     try {
-      const rows = await getDb().select().from(appStore).where(eq(appStore.id, "default")).limit(1);
+      // A read-only transaction: Postgres refuses any write inside it, whatever the code below does.
+      const rows = await getDb().transaction(
+        async (tx) => tx.select().from(appStore).where(eq(appStore.id, "default")).limit(1),
+        { accessMode: "read only" },
+      );
       if (!rows.length) throw new Error("app_store has no 'default' row; nothing to count");
       return { store: rows[0].data as KpiCountsInput, source: "postgres" };
     } finally {
