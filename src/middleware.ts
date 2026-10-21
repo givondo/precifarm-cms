@@ -8,7 +8,7 @@ import { signedSessionValid } from "@/lib/security/edge-session";
 const SESSION_COOKIES = ["__Host-precifarm_agent_session", "precifarm_agent_session"];
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 /** Pages anyone may open. API routes are excluded here because each route checks its own access. */
-const PUBLIC_PAGES = new Set(["/", "/login", "/robots.txt"]);
+const PUBLIC_PAGES = new Set(["/", "/login", "/robots.txt", "/icon.svg"]);
 
 function allowedHosts(): string[] {
   return (process.env.CMS_ALLOWED_HOSTS ?? "")
