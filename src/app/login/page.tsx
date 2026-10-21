@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import BrandMark from "@/components/BrandMark";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,47 +35,41 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Precifarm</h1>
-          <p className="text-sm text-gray-500 mt-1">EV Charging & Payments CMS</p>
+    <div className="pf-login">
+      <section className="pf-panel" aria-label="Precifarm">
+        <div className="pf-mark">
+          <BrandMark size={22} />
         </div>
+        <div>
+          <h1>Operations, one desk.</h1>
+          <p>Home installs, charging sessions, customers and M-Pesa for Precifarm Kenya, in one place.</p>
+        </div>
+        <small>Precifarm AI Ltd, Nairobi</small>
+      </section>
 
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Agent sign in</h2>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="pf-form-side">
+        <form onSubmit={handleSubmit} className="pf-form" noValidate={false}>
+          <h2>Sign in</h2>
+          <p className="sub">Use the email and password for your Precifarm account.</p>
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                className="input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username"
-                required
-              />
+              <label htmlFor="email">Email</label>
+              <input id="email" type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                type="password"
-                className="input"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-              />
+              <label htmlFor="password">Password</label>
+              <input id="password" type="password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
             </div>
-
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            <button type="submit" className="btn btn-primary w-full" disabled={loading}>
+            {error ? (
+              <p className="err" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? "Signing in…" : "Sign in"}
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );

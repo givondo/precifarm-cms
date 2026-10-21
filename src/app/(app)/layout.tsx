@@ -10,10 +10,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!agent) redirect("/login");
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="pf-shell">
       <Sidebar agent={agent} />
-      <main className="flex-1 overflow-auto">
-        <div className="px-8 py-6">{children}</div>
+      <main className="pf-main">
+        <div className="pf-page">{children}</div>
       </main>
     </div>
   );
