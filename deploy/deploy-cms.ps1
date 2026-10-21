@@ -78,14 +78,18 @@ if (-not (Exists @("artifacts", "repositories", "describe", "precifarm", "--loca
 Step "1b. Existing service"
 $ErrorActionPreference = "Continue"
 $number = (& gcloud projects describe $Project --format "value(projectNumber)" 2>$null)
-$out = (& gcloud run services describe $Service --region $Region --project $Project --quiet --format json 2>&1 | Out-String)
+# Read the description from stdout only: gcloud notices on stderr (updates available, warnings) must not
+# reach the JSON parser.
+$errFile = [IO.Path]::GetTempFileName()
+$out = (& gcloud run services describe $Service --region $Region --project $Project --quiet --format json 2> $errFile | Out-String)
 $code = $LASTEXITCODE
+$errText = (Get-Content $errFile -Raw); Remove-Item $errFile -Force -ErrorAction SilentlyContinue
 $ErrorActionPreference = "Stop"
 $svc = $null
 if ($code -eq 0) { $svc = ($out | ConvertFrom-Json) }
-elseif ($out -notmatch "Cannot find service|could not be found|NOT_FOUND|does not exist") {
+elseif ("$errText" -notmatch "Cannot find service|could not be found|NOT_FOUND|does not exist") {
   # Anything other than "not found" (permissions, network, API) means we cannot tell; stop safely.
-  throw "Could not check for an existing ${Service}: $out"
+  throw "Could not check for an existing ${Service}: $errText"
 }
 $out = $null   # the description can hold settings; keep it out of the transcript
 # Settings the live service already has: literal values and Secret Manager references, kept as they are.
@@ -96,12 +100,22 @@ if ($svc) {
     if ($e.valueFrom -and $e.valueFrom.secretKeyRef) { $secretRefs[$e.name] = $true } else { $plainEnv[$e.name] = [string]$e.value }
   }
 }
+$Pinned = $false
 $DbMode = $plainEnv.Contains("DATABASE_URL") -or $plainEnv.Contains("SUPABASE_DB_PASSWORD") -or $secretRefs.Contains("DATABASE_URL") -or $secretRefs.Contains("SUPABASE_DB_PASSWORD")
 $RunSa = $Sa
 if ($DbMode) {
   $RunSa = [string]$svc.spec.template.spec.serviceAccountName
   if (-not $RunSa) { $RunSa = "$number-compute@developer.gserviceaccount.com" }
-  $current = [string]$svc.status.latestReadyRevisionName
+  # The traffic split as it is now, so the undo puts back exactly that.
+  $traffic = @($svc.status.traffic)
+  $undo = (@($traffic | Where-Object { $_.percent -gt 0 } | ForEach-Object {
+    $rev = [string]$_.revisionName
+    if (-not $rev -and $_.latestRevision) { $rev = [string]$svc.status.latestReadyRevisionName }
+    "$rev=$($_.percent)"
+  })) -join ","
+  if (-not $undo -or $undo -match "(^|,)=") { throw "Could not read the live traffic split; stopping before any change." }
+  $Pinned = -not (@($traffic | Where-Object { $_.latestRevision -and $_.percent -eq 100 }).Count)
+  $livePayments = -not ($plainEnv.Contains("DEMO_PAYMENT") -and $plainEnv["DEMO_PAYMENT"] -ne "false") -and ($plainEnv.Contains("DEMO_PAYMENT") -or $secretRefs.Contains("DEMO_PAYMENT"))
   if ($plainEnv.Contains("DEMO_PAYMENT")) { $payment = "DEMO_PAYMENT=" + $plainEnv["DEMO_PAYMENT"] } elseif ($secretRefs.Contains("DEMO_PAYMENT")) { $payment = "DEMO_PAYMENT from Secret Manager" } else { $payment = "DEMO_PAYMENT not set (demo mode)" }
   Write-Host ""
   Write-Host "$Service is live in $Region with a database. This run updates it in place:" -ForegroundColor Yellow
@@ -109,10 +123,18 @@ if ($DbMode) {
   Write-Host "  - new code: signed sessions, hashed passwords, retired booking off, page and host protection"
   Write-Host "  - sign-in becomes $AdminEmail with the password you choose; accounts on the old published"
   Write-Host "    password are switched off, and other accounts need a password reset (scripts/set-agent-password.ts)"
-  Write-Host "  - current revision: $current"
-  Write-Host "    to undo: gcloud run services update-traffic $Service --region $Region --project $Project --to-revisions $current=100"
-  $answer = Read-Host "Type UPDATE to go ahead (anything else stops with nothing changed)"
-  if ($answer -cne "UPDATE") { throw "Stopped. Nothing was changed." }
+  Write-Host "  - before its first change the new code copies the database record to a row named bak-<time>"
+  if ($Pinned) { Write-Host "  - traffic is pinned now ($undo); after the deploy it moves to the new revision" }
+  if ($livePayments) {
+    Write-Host "  - payments may be LIVE ($payment): M-Pesa payments started in the last few minutes" -ForegroundColor Yellow
+    Write-Host "    will be refused when they call back. Run this when no payment is in progress." -ForegroundColor Yellow
+  }
+  Write-Host "  To undo later, in this order:"
+  Write-Host "    1. gcloud run services update-traffic $Service --region $Region --project $Project --to-revisions $undo"
+  Write-Host "    2. in the database SQL editor, restore the record from the newest backup row:"
+  Write-Host "       UPDATE app_store SET data = (SELECT data FROM app_store WHERE id LIKE 'bak-%' ORDER BY id DESC LIMIT 1) WHERE id = 'default';"
+  $answer = Read-Host "Type UPDATE to go ahead (anything else stops; the service and its data stay as they are)"
+  if ($answer -cne "UPDATE") { throw "Stopped. The service and its data were not changed." }
 } elseif ($svc) { Write-Host "Updating the existing $Service (no database configured on it)." } else { Write-Host "No $Service yet in $Region; creating it." }
 
 if (-not $DbMode) {
@@ -213,6 +235,8 @@ try {
       "--service-account", $RunSa, "--allow-unauthenticated",
       "--update-secrets", $secretMap,
       "--env-vars-file", $envFile)
+    # A pinned split would leave the new revision with no traffic; send it all to the new code.
+    if ($Pinned) { Run @("run", "services", "update-traffic", $Service, "--region", $Region, "--project", $Project, "--to-latest") }
   } else {
     Run @("run", "deploy", $Service,
       "--image", "${Image}:$Commit", "--region", $Region, "--project", $Project,

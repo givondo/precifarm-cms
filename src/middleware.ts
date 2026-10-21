@@ -33,7 +33,9 @@ export async function middleware(req: NextRequest) {
   const host = (req.headers.get("host") ?? "").toLowerCase();
   const https = (req.headers.get("x-forwarded-proto") ?? req.nextUrl.protocol.replace(":", "")).split(",")[0].trim() === "https";
   const hosts = allowedHosts();
-  if (hosts.length && !hosts.includes(host)) {
+  // The health check answers on any host so platform probes and uptime checks keep working; it
+  // reveals only { ok } without an admin session.
+  if (hosts.length && !hosts.includes(host) && req.nextUrl.pathname !== "/api/v1/health") {
     return secure(new NextResponse("This CMS does not answer on this address.", { status: 421, headers: { "Content-Type": "text/plain" } }), https);
   }
 

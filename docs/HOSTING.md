@@ -15,15 +15,34 @@ certificate 15 to 60 minutes after the record resolves.
 
 To change the admin password later, run the script again with `-NewPassword`. That signs everyone out.
 
+## When the service already runs with a database
+
+The live `precifarm-cms` (behind api.precifarm.com, used by the website and the app) runs with a
+PostgreSQL database. The script then updates it in place: the data stays in the database, every
+existing setting is kept (payment mode included), the service keeps its own account, and only the
+image, the admin, session and callback secrets, the host list and `BOOKING_ENABLED=false` change.
+It shows the current traffic split and changes nothing until you type `UPDATE`.
+
+Before its first change to the data, the new code saves the record untouched as a row named
+`bak-<time>` in the same `app_store` table. To undo, in this order:
+
+1. `gcloud run services update-traffic precifarm-cms --region europe-west1 --to-revisions <printed split>`
+2. In the database SQL editor:
+   `UPDATE app_store SET data = (SELECT data FROM app_store WHERE id LIKE 'bak-%' ORDER BY id DESC LIMIT 1) WHERE id = 'default';`
+
+After the update, accounts still on the password published in early versions are switched off and
+other existing accounts sign in only after a reset (`scripts/set-agent-password.ts`). The admin
+signs in with the email and password chosen in the script.
+
 ## How it is set up
 
 | Setting | Value | Why |
 |---|---|---|
 | Instances | 0 to 1 | The data file has one writer; scales to zero when idle |
-| Data | `gs://PROJECT-precifarm-cms-data` mounted at `/data` (`CMS_DATA_DIR`), object versioning on | Survives restarts; any earlier version of `store.json` can be restored |
+| Data | The existing database when there is one; otherwise `gs://PROJECT-precifarm-cms-data` mounted at `/data` (`CMS_DATA_DIR`), object versioning on | Survives restarts; earlier versions can be restored |
 | Admin | `CMS_ADMIN_EMAIL` plus `CMS_ADMIN_PASSWORD_HASH` (Secret Manager) | No default accounts in production; a changed hash resets the password |
 | Sessions | `SESSION_SECRET` (Secret Manager), 8 hours, ended for every device on sign-out | Signed cookie, never the bare agent id |
-| Hosts | `CMS_ALLOWED_HOSTS`: cms.precifarm.com and the two run.app names | Any other Host header gets 421 |
+| Hosts | `CMS_ALLOWED_HOSTS`: cms.precifarm.com, api.precifarm.com, the run.app names and any domain mapped to the service | Any other Host header gets 421, except `/api/v1/health` |
 | Payments | `DEMO_PAYMENT=true` | No real M-Pesa charge until live credentials are approved |
 | Booking | `BOOKING_ENABLED=false` | Passenger booking is retired (Canon); its routes return 410 |
 | M-Pesa callback | `MPESA_CALLBACK_TOKEN` (Secret Manager) | Callbacks without `?token=` are refused |
