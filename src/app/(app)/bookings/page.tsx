@@ -3,12 +3,14 @@ import { formatCurrency, formatPhoneDisplay } from "@/lib/booking";
 import { parseSeats } from "@/lib/seats";
 import { getDeliveryStageLabel } from "@/lib/cargo";
 import { BookingStatusBadge } from "@/components/ui/BookingStatusBadge";
+import { requirePageAgent } from "@/lib/auth";
 
 export default async function BookingsPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string; channel?: string; q?: string }>;
 }) {
+  await requirePageAgent();
   const params = await searchParams;
   const results = await listBookings({
     status: params.status,

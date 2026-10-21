@@ -1,7 +1,9 @@
 import { listCustomers } from "@/lib/services";
 import { formatPhoneDisplay } from "@/lib/booking";
+import { requirePageAgent } from "@/lib/auth";
 
 export default async function CustomersPage() {
+  await requirePageAgent();
   const customersWithBookings = await listCustomers();
 
   return (

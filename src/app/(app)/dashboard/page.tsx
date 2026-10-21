@@ -13,6 +13,7 @@ import {
   installStageLabels,
 } from "@/lib/ev-ops";
 import Link from "next/link";
+import { requirePageAgent } from "@/lib/auth";
 
 const quickLinks = [
   {
@@ -38,6 +39,7 @@ const quickLinks = [
 ];
 
 export default async function DashboardPage() {
+  await requirePageAgent();
   const stats = await getDashboardStats();
   const recentInstalls = (await listInstallOrders()).slice(0, 5);
   const recentSessions = (await listChargingSessions()).slice(0, 5);

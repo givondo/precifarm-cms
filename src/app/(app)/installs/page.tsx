@@ -8,6 +8,7 @@ import {
 } from "@/lib/ev-ops";
 import InstallOrderEditor from "@/components/InstallOrderEditor";
 import InstallPipelineBar from "@/components/InstallPipelineBar";
+import { requirePageAgent } from "@/lib/auth";
 
 function truncate(text: string | undefined, max = 72): string {
   if (!text) return "—";
@@ -19,6 +20,7 @@ export default async function InstallsPage({
 }: {
   searchParams: Promise<{ stage?: string }>;
 }) {
+  await requirePageAgent();
   const { stage: stageParam } = await searchParams;
   const stageFilter =
     stageParam && stageParam in installStageLabels ? (stageParam as InstallStage) : undefined;

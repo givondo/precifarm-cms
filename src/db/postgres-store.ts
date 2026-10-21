@@ -25,7 +25,7 @@ export async function getStore(): Promise<DataStore> {
   const rows = await db.select().from(appStore).where(eq(appStore.id, STORE_ID)).limit(1);
 
   if (rows.length === 0) {
-    const store = seedStore();
+    const store = normalizeStore(seedStore()).store;
     await db.insert(appStore).values({ id: STORE_ID, data: store });
     return store;
   }
@@ -52,7 +52,7 @@ export async function mutateStore(fn: (store: DataStore) => void): Promise<void>
 
       let store: DataStore;
       if (rows.length === 0) {
-        store = seedStore();
+        store = normalizeStore(seedStore()).store;
         await tx`
           INSERT INTO app_store (id, data, updated_at)
           VALUES (${STORE_ID}, ${tx.json(store)}, NOW())

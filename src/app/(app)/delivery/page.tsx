@@ -1,11 +1,13 @@
 import { listCargoDeliveries } from "@/lib/cargo-delivery";
 import DeliveryDesk from "./DeliveryDesk";
+import { requirePageAgent } from "@/lib/auth";
 
 export default async function DeliveryPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string; q?: string }>;
 }) {
+  await requirePageAgent();
   const params = await searchParams;
   const filter = params.status === "completed" ? "completed" : "active";
   const rows = await listCargoDeliveries({

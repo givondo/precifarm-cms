@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { tokensMatch } from "@/lib/security/mpesa-callback";
 import {
   getAnalyticsIngestKey,
   getAnalyticsIngestStatus,
@@ -16,8 +17,9 @@ const RATE_WINDOW_MS = 60_000;
 
 function checkIngestAuth(request: Request): boolean {
   const requiredKey = getAnalyticsIngestKey();
-  if (!requiredKey) return true;
-  return request.headers.get("x-analytics-key") === requiredKey;
+  // Production requires ANALYTICS_INGEST_KEY; without it nothing may write events.
+  if (!requiredKey) return process.env.NODE_ENV !== "production";
+  return tokensMatch(request.headers.get("x-analytics-key"), requiredKey);
 }
 
 export async function POST(request: Request) {

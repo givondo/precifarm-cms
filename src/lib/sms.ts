@@ -2,7 +2,16 @@ import fs from "fs";
 import path from "path";
 import { maskPhone } from "@/lib/security/redact";
 
-const SMS_LOG = path.join(process.cwd(), "data", "sms.log");
+import { dataDir } from "@/db/store";
+
+/** Message log beside the store. There is no SMS provider yet: messages are recorded, not sent. */
+function smsLog(): string {
+  try {
+    return path.join(dataDir(), "sms.log");
+  } catch {
+    return path.join(process.cwd(), "data", "sms.log");
+  }
+}
 
 export type SmsLogEntry = {
   at: string;
@@ -34,9 +43,14 @@ export function logSms(params: {
     recipient: params.recipient,
   };
 
-  const dir = path.dirname(SMS_LOG);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.appendFileSync(SMS_LOG, JSON.stringify(entry) + "\n", "utf-8");
+  // Never let the log break the work that triggered it (a payment, a delivery update).
+  try {
+    const file = smsLog();
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.appendFileSync(file, JSON.stringify(entry) + "\n", "utf-8");
+  } catch (err) {
+    console.error("[SMS] could not write the message log:", err instanceof Error ? err.message : err);
+  }
 
   if (process.env.NODE_ENV !== "production") {
     const who = params.recipient ? ` (${params.recipient})` : "";
@@ -46,8 +60,9 @@ export function logSms(params: {
 }
 
 export function listSmsLog(limit = 50): SmsLogEntry[] {
-  if (!fs.existsSync(SMS_LOG)) return [];
-  const lines = fs.readFileSync(SMS_LOG, "utf-8").trim().split("\n").filter(Boolean);
+  const file = smsLog();
+  if (!fs.existsSync(file)) return [];
+  const lines = fs.readFileSync(file, "utf-8").trim().split("\n").filter(Boolean);
   return lines
     .slice(-limit)
     .reverse()

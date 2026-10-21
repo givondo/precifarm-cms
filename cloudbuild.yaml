@@ -1,4 +1,5 @@
-# Cloud Build — precifarm-cms → Cloud Run
+# Cloud Build: build precifarm-cms and roll the new image onto the existing Cloud Run service.
+# First deploy and every settings change: deploy/deploy-cms.ps1 (see docs/HOSTING.md).
 substitutions:
   _AR_REGION: africa-south1
   _REGION: europe-west1
@@ -31,13 +32,8 @@ steps:
       - --image=${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms:$BUILD_ID
       - --region=${_REGION}
       - --platform=managed
-      - --allow-unauthenticated
-      - --port=8080
-      - --memory=1Gi
-      - --min-instances=0
-      - --max-instances=10
-      - --set-secrets=DATABASE_URL=precifarm-database-url:latest,DEMO_PAYMENT=precifarm-demo-payment:latest,MPESA_CONSUMER_KEY=precifarm-mpesa-consumer-key:latest,MPESA_CONSUMER_SECRET=precifarm-mpesa-consumer-secret:latest,MPESA_PASSKEY=precifarm-mpesa-passkey:latest,MPESA_SHORTCODE=precifarm-mpesa-shortcode:latest,MPESA_CALLBACK_URL=precifarm-mpesa-callback-url:latest,MPESA_ENVIRONMENT=precifarm-mpesa-environment:latest,SESSION_SECRET=precifarm-session-secret:latest,MPESA_CALLBACK_TOKEN=precifarm-mpesa-callback-token:latest
-      - --set-env-vars=NEXT_PUBLIC_SITE_URL=${_SITE_URL},ANALYTICS_ENVIRONMENT=production
+    # Image only: the service's settings (secrets, the /data volume, one instance, allowed hosts)
+    # are owned by deploy/deploy-cms.ps1 and kept from the previous revision.
 
 images:
   - ${_AR_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/cms:$BUILD_ID

@@ -2,6 +2,7 @@ import { isPostgresEnabled } from "@/db/client";
 import { listSeoContent, listSeoEntities, searchSeoContent } from "@/lib/seo/queries";
 import { analyzeContentGaps } from "@/lib/seo/gaps";
 import { apiError, apiOk } from "@/lib/api/responses";
+import { requireAdmin } from "@/lib/api/require-admin";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://precifarm.com";
 
@@ -113,6 +114,9 @@ export async function POST(request: Request) {
       return apiOk({ entities });
     }
     case "content_gaps": {
+      // Same data as the admin-only /seo/gaps page.
+      const admin = await requireAdmin();
+      if (!admin.ok) return admin.response;
       const gaps = await analyzeContentGaps(Number(args.limit ?? 20));
       return apiOk({ gaps });
     }

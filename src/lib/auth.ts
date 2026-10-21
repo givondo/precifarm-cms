@@ -3,7 +3,11 @@ import type { StoreAgent } from "@/db/store";
 import { getSessionSecret, verifySessionToken } from "@/lib/security/session";
 import { burnPasswordCheck, hashPassword, verifyPassword } from "@/lib/security/password";
 
-export const SESSION_COOKIE = "precifarm_agent_session";
+/**
+ * In production the cookie takes the __Host- prefix: Secure, path /, no Domain, so no other
+ * precifarm.com subdomain can set or overwrite it.
+ */
+export const SESSION_COOKIE = process.env.NODE_ENV === "production" ? "__Host-precifarm_agent_session" : "precifarm_agent_session";
 
 export type SessionAgent = Pick<StoreAgent, "id" | "email" | "name" | "role" | "branch">;
 
@@ -20,6 +24,9 @@ export async function getSessionAgent(): Promise<SessionAgent | null> {
   const store = await getStore();
   const agent = store.agents.find((a) => a.id === agentId && a.isActive);
   if (!agent) return null;
+  // Sign-out and password changes set sessionsNotBefore; older sessions (or ones without an issue
+  // time) stop working on every device.
+  if (agent.sessionsNotBefore && (session.iat ?? 0) * 1000 < agent.sessionsNotBefore) return null;
 
   return {
     id: agent.id,
@@ -64,4 +71,27 @@ export async function authenticateAgent(
     role: agent.role,
     branch: agent.branch,
   };
+}
+
+/** End every session of this agent, on every device. */
+export async function revokeAgentSessions(agentId: string, nowMs = Date.now()): Promise<void> {
+  await mutateStore((store) => {
+    const a = store.agents.find((x) => x.id === agentId);
+    // Whole seconds, matching the token's iat, so a session signed in the same second also ends.
+    if (a) a.sessionsNotBefore = Math.ceil(nowMs / 1000) * 1000;
+  });
+}
+
+/**
+ * For server pages: the signed-in agent, or a redirect to /login. Each page calls this itself,
+ * because Next.js can render a page segment without re-running the (app) layout on client
+ * navigation requests, so the layout's check alone does not protect page data.
+ */
+export async function requirePageAgent(): Promise<SessionAgent> {
+  const agent = await getSessionAgent();
+  if (!agent) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
+  return agent as SessionAgent;
 }

@@ -1,8 +1,10 @@
 import { listChargingSessions } from "@/lib/services";
 import { formatCurrency, formatPhoneDisplay } from "@/lib/booking";
 import { chargingSiteLabels } from "@/lib/ev-ops";
+import { requirePageAgent } from "@/lib/auth";
 
 export default async function ChargingSessionsPage() {
+  await requirePageAgent();
   const sessions = await listChargingSessions();
 
   return (

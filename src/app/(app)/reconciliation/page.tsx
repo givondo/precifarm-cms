@@ -1,11 +1,13 @@
 import { getReconciliationReport } from "@/lib/services";
 import { getLocalDateString, formatCurrency } from "@/lib/booking";
+import { requirePageAgent } from "@/lib/auth";
 
 export default async function ReconciliationPage({
   searchParams,
 }: {
   searchParams: Promise<{ date?: string }>;
 }) {
+  await requirePageAgent();
   const params = await searchParams;
   const date = params.date ?? getLocalDateString();
   const report = await getReconciliationReport(date);

@@ -20,6 +20,11 @@ Cargo and last-mile modules exist in code. They are Stage 1 expansion capability
 
 ---
 
+## Hosting
+
+Production runs at **https://cms.precifarm.com** (Cloud Run, europe-west1). Deploy, settings and data
+restore: [docs/HOSTING.md](docs/HOSTING.md).
+
 ## Status
 
 **Phase A prototype running** — agent desk CMS on `http://localhost:3002`.
