@@ -27,15 +27,26 @@ export async function PATCH(
   }
 
   const raw = body as Record<string, unknown>;
-  const stageRaw = typeof raw.stage === "string" ? raw.stage.trim() : "";
-  const stage = stageRaw && STAGES.includes(stageRaw as InstallStage) ? (stageRaw as InstallStage) : undefined;
+  // A stage or amount that is sent but not valid is refused, never silently dropped while the rest
+  // of the change is saved.
+  let stage: InstallStage | undefined;
+  if (raw.stage !== undefined && raw.stage !== null) {
+    const stageRaw = typeof raw.stage === "string" ? raw.stage.trim() : "";
+    if (!STAGES.includes(stageRaw as InstallStage)) {
+      return apiError("VALIDATION_ERROR", "Unknown stage.", 400);
+    }
+    stage = stageRaw as InstallStage;
+  }
 
-  const quoteAmount =
-    typeof raw.quoteAmount === "number" && raw.quoteAmount >= 0 ? raw.quoteAmount : undefined;
-  const depositAmount =
-    typeof raw.depositAmount === "number" && raw.depositAmount >= 0
-      ? raw.depositAmount
-      : undefined;
+  const amount = (value: unknown): number | undefined | null => {
+    if (value === undefined || value === null) return undefined;
+    return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+  };
+  const quoteAmount = amount(raw.quoteAmount);
+  const depositAmount = amount(raw.depositAmount);
+  if (quoteAmount === null || depositAmount === null) {
+    return apiError("VALIDATION_ERROR", "Amounts must be numbers of zero or more.", 400);
+  }
 
   if (!stage && quoteAmount === undefined && depositAmount === undefined) {
     return apiError("VALIDATION_ERROR", "Provide a stage and/or quote or deposit amount.", 400);

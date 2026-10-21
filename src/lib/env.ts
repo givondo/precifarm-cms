@@ -19,7 +19,8 @@ export const mpesaEnv = {
   passkey: trim("MPESA_PASSKEY"),
   shortcode: trim("MPESA_SHORTCODE"),
   callbackUrl: trim("MPESA_CALLBACK_URL"),
-  environment: (trim("MPESA_ENVIRONMENT") ?? "sandbox") as MpesaEnvironment,
+  // Any case or spacing, matching isProductionPayments(); anything other than production is the sandbox.
+  environment: (trim("MPESA_ENVIRONMENT")?.toLowerCase() === "production" ? "production" : "sandbox") as MpesaEnvironment,
 } as const;
 
 export const appEnv = {

@@ -11,9 +11,12 @@ import {
   validateAnalyticsErrorBatch,
 } from "@/lib/analytics/error-validate";
 import { getClientIp, checkRateLimit } from "@/lib/api/rate-limit";
+import { readJsonBody } from "@/lib/api/read-json";
 
 const ERROR_LIMIT = 60;
 const ERROR_WINDOW_MS = 60_000;
+/** A full batch of 20 reports fits comfortably; anything larger is refused before parsing. */
+const ERRORS_MAX_BYTES = 128 * 1024;
 
 function checkIngestAuth(request: Request): boolean {
   const requiredKey = getAnalyticsIngestKey();
@@ -59,15 +62,9 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: { code: "INVALID_JSON", message: "Invalid JSON body." } },
-      { status: 400 }
-    );
-  }
+  const read = await readJsonBody(request, ERRORS_MAX_BYTES);
+  if (!read.ok) return read.response;
+  const body = read.body;
 
   if (body && typeof body === "object" && Array.isArray((body as { errors?: unknown }).errors)) {
     const batch = validateAnalyticsErrorBatch(body);

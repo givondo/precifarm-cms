@@ -9,6 +9,9 @@ export type ContactSubmissionInput = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Channel tags come from our own clients, for example "web" or "web-private-house". */
+const CHANNEL_RE = /^[a-z0-9_-]{1,32}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function validateContactInput(body: unknown):
   | { ok: true; input: ContactSubmissionInput }
@@ -23,9 +26,10 @@ export function validateContactInput(body: unknown):
   const phone = typeof raw.phone === "string" ? raw.phone.trim() : undefined;
   const interest = typeof raw.interest === "string" ? raw.interest.trim() : "";
   const message = typeof raw.message === "string" ? raw.message.trim() : "";
-  const channel = typeof raw.channel === "string" ? raw.channel.trim() : "web";
+  const channel = typeof raw.channel === "string" && raw.channel.trim() ? raw.channel.trim() : "web";
+  // Tracking id only: anything but a UUID (the column type) is dropped rather than failing the enquiry.
   const anonymousId =
-    typeof raw.anonymousId === "string" && raw.anonymousId.trim()
+    typeof raw.anonymousId === "string" && UUID_RE.test(raw.anonymousId.trim())
       ? raw.anonymousId.trim()
       : undefined;
 
@@ -43,6 +47,9 @@ export function validateContactInput(body: unknown):
   }
   if (message.length < 10 || message.length > 5000) {
     return { ok: false, error: "Message must be 10–5000 characters." };
+  }
+  if (!CHANNEL_RE.test(channel)) {
+    return { ok: false, error: "Channel is invalid." };
   }
 
   return {

@@ -26,7 +26,9 @@ const PII_BLOCKLIST = new Set([
 ]);
 
 const MAX_PROPERTIES = 50;
+const MAX_KEY_LENGTH = 64;
 const MAX_STRING_LENGTH = 512;
+const ENVIRONMENTS = new Set(["production", "staging", "development"]);
 const TIMESTAMP_SKEW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type ValidationResult =
@@ -45,6 +47,7 @@ function sanitizeProperties(
   let count = 0;
   for (const [key, value] of Object.entries(props)) {
     if (count >= MAX_PROPERTIES) break;
+    if (key.length > MAX_KEY_LENGTH) continue;
     const lower = key.toLowerCase();
     if (PII_BLOCKLIST.has(lower) || PII_BLOCKLIST.has(key)) continue;
     if (value === null) {
@@ -112,7 +115,11 @@ export function validateAnalyticsEvent(raw: unknown): ValidationResult {
     customer_id: customerId,
     session_id: sessionId,
     platform,
-    environment: input.environment as AnalyticsEventInput["environment"],
+    // Only a known label; otherwise the server's own environment is recorded.
+    environment:
+      typeof input.environment === "string" && ENVIRONMENTS.has(input.environment)
+        ? (input.environment as AnalyticsEventInput["environment"])
+        : undefined,
     app_version: input.app_version ? String(input.app_version).slice(0, 32) : undefined,
     device_id: input.device_id ? String(input.device_id).slice(0, 64) : undefined,
     page_url: input.page_url ? String(input.page_url).slice(0, 2048) : undefined,

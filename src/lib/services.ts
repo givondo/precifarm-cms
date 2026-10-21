@@ -6,6 +6,7 @@ import {
   normalizeKenyanPhone,
   calculateFare,
   getLocalDateString,
+  isOnLocalDate,
   formatTicketSms,
   type CreateBookingInput,
 } from "@/lib/booking";
@@ -135,6 +136,10 @@ async function upsertCustomer(name: string, phone: string, email?: string): Prom
   return id;
 }
 
+/**
+ * Links a public lead to a customer record. Leads are unauthenticated, so they only fill in details
+ * a record lacks: they never rename a customer or replace an email, and never match on name alone.
+ */
 async function upsertCustomerFromLead(
   name: string,
   email: string,
@@ -142,34 +147,30 @@ async function upsertCustomerFromLead(
 ): Promise<string> {
   const normalizedEmail = email.trim().toLowerCase();
   const phoneE164 = phone ? normalizeKenyanPhone(phone) : null;
-
-  if (phoneE164) {
-    return upsertCustomer(name, phone!, normalizedEmail);
-  }
-
   const now = new Date().toISOString();
-  const store = await getStore();
-  const existing =
-    store.customers.find((c) => c.email?.toLowerCase() === normalizedEmail) ??
-    store.customers.find((c) => c.name === name && !c.phoneE164.startsWith("+254"));
+  let customerId = "";
 
-  if (existing) {
-    await mutateStore((s) => {
-      const c = s.customers.find((x) => x.id === existing.id)!;
-      c.name = name;
-      c.email = normalizedEmail;
-      c.updatedAt = now;
-    });
-    return existing.id;
-  }
-
-  const id = crypto.randomUUID();
-  let hash = 0;
-  for (const ch of normalizedEmail) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  const placeholderPhone = `+2547${String(hash).slice(-8).padStart(8, "0")}`;
   await mutateStore((s) => {
+    const existing =
+      (phoneE164 ? s.customers.find((c) => c.phoneE164 === phoneE164) : undefined) ??
+      (phoneE164 ? undefined : s.customers.find((c) => c.email?.toLowerCase() === normalizedEmail));
+    if (existing) {
+      if (!existing.name) existing.name = name;
+      if (!existing.email) existing.email = normalizedEmail;
+      existing.updatedAt = now;
+      customerId = existing.id;
+      return;
+    }
+
+    customerId = crypto.randomUUID();
+    let placeholderPhone = phoneE164;
+    if (!placeholderPhone) {
+      let hash = 0;
+      for (const ch of normalizedEmail) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+      placeholderPhone = `+2547${String(hash).slice(-8).padStart(8, "0")}`;
+    }
     s.customers.push({
-      id,
+      id: customerId,
       phoneE164: placeholderPhone,
       name,
       email: normalizedEmail,
@@ -177,7 +178,7 @@ async function upsertCustomerFromLead(
       updatedAt: now,
     });
   });
-  return id;
+  return customerId;
 }
 
 function nextInstallReference(orders: StoreInstallOrder[]): string {
@@ -209,12 +210,11 @@ export async function createInstallSurveyFromLead(input: CreateInstallSurveyInpu
   const store = await getStore();
   const email = input.email.trim().toLowerCase();
   const today = getLocalDateString();
-  const existing = (store.installOrders ?? []).find(
-    (o) =>
-      o.contactEmail?.toLowerCase() === email &&
-      o.stage === "survey_requested" &&
-      o.createdAt.startsWith(today),
-  );
+  const isDuplicate = (o: StoreInstallOrder) =>
+    o.contactEmail?.toLowerCase() === email &&
+    o.stage === "survey_requested" &&
+    isOnLocalDate(o.createdAt, today);
+  const existing = (store.installOrders ?? []).find(isDuplicate);
   if (existing) {
     return {
       skipped: true as const,
@@ -228,31 +228,41 @@ export async function createInstallSurveyFromLead(input: CreateInstallSurveyInpu
   const now = new Date().toISOString();
   const customerId = await upsertCustomerFromLead(input.name, email, input.phone);
   const id = crypto.randomUUID();
-  const reference = nextInstallReference(store.installOrders ?? []);
   const contactPhone = input.phone ? normalizeKenyanPhone(input.phone) ?? "" : "";
 
-  const order: StoreInstallOrder = {
-    id,
-    reference,
-    customerId,
-    product,
-    city,
-    county,
-    stage: "survey_requested",
-    lipaPolePole: wantsLipaPolePole(input.message),
-    channel: input.channel ?? "web",
-    contactName: input.name.trim(),
-    contactPhone,
-    contactEmail: email,
-    notes: input.message.trim(),
-    createdAt: now,
-    updatedAt: now,
-  };
-
+  // Duplicate check and reference are decided inside the store write, so concurrent submissions
+  // cannot both take the same reference or both save the same survey.
+  const outcome: { order?: StoreInstallOrder; duplicate?: StoreInstallOrder } = {};
   await mutateStore((s) => {
     if (!s.installOrders) s.installOrders = [];
-    s.installOrders.push(order);
+    outcome.duplicate = s.installOrders.find(isDuplicate);
+    if (outcome.duplicate) return;
+    outcome.order = {
+      id,
+      reference: nextInstallReference(s.installOrders),
+      customerId,
+      product,
+      city,
+      county,
+      stage: "survey_requested",
+      lipaPolePole: wantsLipaPolePole(input.message),
+      channel: input.channel ?? "web",
+      contactName: input.name.trim(),
+      contactPhone,
+      contactEmail: email,
+      notes: input.message.trim(),
+      createdAt: now,
+      updatedAt: now,
+    };
+    s.installOrders.push(outcome.order);
   });
+
+  const order = outcome.order;
+  if (!order) {
+    const dup = outcome.duplicate!;
+    return { skipped: true as const, reason: "duplicate_today" as const, reference: dup.reference, id: dup.id };
+  }
+  const reference = order.reference;
 
   await logAudit("install_order", id, "survey_requested", "customer", undefined, {
     reference,
@@ -316,6 +326,9 @@ export async function updateInstallStage(
     await logAudit("install_order", order.id, `stage_${stage}`, agentId ? "agent" : "system", agentId, {
       reference,
       priorStage: order.stage,
+      // Amounts changed together with the stage belong in the same audit entry.
+      ...(extras?.quoteAmount != null ? { quoteAmount: extras.quoteAmount } : {}),
+      ...(extras?.depositAmount != null ? { depositAmount: extras.depositAmount } : {}),
     });
   } else if (extras?.quoteAmount != null || extras?.depositAmount != null) {
     await logAudit("install_order", order.id, "amounts_updated", agentId ? "agent" : "system", agentId, {
@@ -681,7 +694,7 @@ export async function getEvDashboardStats() {
   const lipaActive = installs.filter(
     (o) => o.lipaPolePole && o.stage !== "commissioned" && o.depositAmount,
   );
-  const todaySessions = sessions.filter((s) => s.createdAt.startsWith(today));
+  const todaySessions = sessions.filter((s) => isOnLocalDate(s.createdAt, today));
   const completedSessions = sessions.filter((s) => s.status === "completed");
   const kwhToday = todaySessions.reduce((sum, s) => sum + (s.kwhDelivered ?? 0), 0);
   const sessionRevenue = completedSessions.reduce((sum, s) => sum + s.amountKes, 0);
@@ -693,12 +706,12 @@ export async function getEvDashboardStats() {
     surveyPipeline: surveyPipeline.length,
     surveysToday: installs.filter(
       (o) =>
-        o.createdAt.startsWith(today) &&
+        isOnLocalDate(o.createdAt, today) &&
         ["survey_requested", "survey_scheduled"].includes(o.stage),
     ).length,
     commissionedTotal: commissioned.length,
     commissionedToday: commissioned.filter((o) =>
-      (o.commissionedAt ?? o.updatedAt).startsWith(today),
+      isOnLocalDate(o.commissionedAt ?? o.updatedAt, today),
     ).length,
     lipaPolePoleActive: lipaActive.length,
     chargingSessionsToday: todaySessions.length,

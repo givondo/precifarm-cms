@@ -3,12 +3,14 @@ import { contactSubmissions } from "@/db/schema";
 import { getAnalyticsEnvironment } from "@/lib/analytics/environment";
 import { insertAnalyticsEvent } from "@/lib/analytics/ingest";
 import { getClientIp, checkRateLimit } from "@/lib/api/rate-limit";
+import { readJsonBody } from "@/lib/api/read-json";
 import { apiError, apiOk } from "@/lib/api/responses";
 import { validateContactInput } from "@/lib/contact";
 import { createInstallSurveyFromLead } from "@/lib/services";
 
 const CONTACT_LIMIT = 5;
 const CONTACT_WINDOW_MS = 60_000;
+const CONTACT_MAX_BYTES = 32 * 1024;
 
 export async function POST(request: Request) {
   if (!isPostgresEnabled()) {
@@ -24,14 +26,10 @@ export async function POST(request: Request) {
     return apiError("RATE_LIMITED", "Too many contact submissions. Try again shortly.", 429);
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return apiError("INVALID_JSON", "Invalid JSON body.", 400);
-  }
+  const read = await readJsonBody(request, CONTACT_MAX_BYTES);
+  if (!read.ok) return read.response;
 
-  const validated = validateContactInput(body);
+  const validated = validateContactInput(read.body);
   if (!validated.ok) {
     return apiError("VALIDATION_ERROR", validated.error, 400);
   }
@@ -48,7 +46,8 @@ export async function POST(request: Request) {
       phone: input.phone,
       interest: input.interest,
       message: input.message,
-      channel: input.channel ?? "web",
+      // contact_submissions.channel is varchar(16); longer tags (web-private-house) would fail the insert.
+      channel: (input.channel ?? "web").slice(0, 16),
       anonymousId: input.anonymousId,
       environment,
     })

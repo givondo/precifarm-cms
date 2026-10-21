@@ -29,7 +29,9 @@ test("tampered payload is rejected", () => {
 test("tampered signature is rejected", () => {
   const token = signSessionToken("agent-123", SECRET);
   const [payload, sig] = token.split(".");
-  const flipped = sig.slice(0, -1) + (sig.endsWith("A") ? "B" : "A");
+  // Flip the first character: the last one carries two padding bits that base64url decoding ignores,
+  // so changing it from A to B (or back) left the signature unchanged in about 1 run in 16.
+  const flipped = (sig[0] === "A" ? "B" : "A") + sig.slice(1);
   assert.equal(verifySessionToken(`${payload}.${flipped}`, SECRET), null);
 });
 

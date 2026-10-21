@@ -6,26 +6,31 @@ const CITY_KEYWORDS: { city: string; county: string; keywords: string[] }[] = [
   { city: "Nakuru", county: "Nakuru County", keywords: ["nakuru"] },
   { city: "Mombasa", county: "Mombasa County", keywords: ["mombasa"] },
   { city: "Eldoret", county: "Uasin Gishu County", keywords: ["eldoret"] },
+  { city: "Kitui", county: "Kitui County", keywords: ["kitui"] },
 ];
 
-export function inferProductFromLead(interest: string, message: string): InstallProduct | null {
-  const text = `${interest} ${message}`.toLowerCase();
+/** Whole words only, so "podcast", "sparked" or "impulse" do not read as a product. */
+const PRODUCT_WORDS: [InstallProduct, RegExp][] = [
+  ["pod", /\bpod\b/i],
+  ["spark", /\bspark\b/i],
+  ["pulse", /\bpulse\b/i],
+];
 
-  if (
-    !interest.includes("Home charger") &&
-    !text.includes("pulse") &&
-    !text.includes("pod") &&
-    !text.includes("spark") &&
-    !text.includes("home charg")
-  ) {
+function productIn(text: string): InstallProduct | null {
+  for (const [product, re] of PRODUCT_WORDS) if (re.test(text)) return product;
+  return null;
+}
+
+export function inferProductFromLead(interest: string, message: string): InstallProduct | null {
+  const text = `${interest} ${message}`;
+  if (!/home charger/i.test(interest) && !/home charg/i.test(text) && !productIn(text)) {
     return null;
   }
 
-  const productLine = message.match(/product interest:\s*(.+)/i)?.[1]?.toLowerCase() ?? text;
-  if (productLine.includes("pod")) return "pod";
-  if (productLine.includes("spark")) return "spark";
-  if (productLine.includes("pulse")) return "pulse";
-  return "pulse";
+  // The survey form's product line decides; otherwise what the customer wrote. Never the interest
+  // label, which names both Pulse and Pod.
+  const productLine = message.match(/product interest:\s*(.+)/i)?.[1] ?? message;
+  return productIn(productLine) ?? "pulse";
 }
 
 export function inferCityFromLead(message: string): { city: string; county: string } {
@@ -36,6 +41,8 @@ export function inferCityFromLead(message: string): { city: string; county: stri
       return { city: row.city, county: row.county };
     }
   }
+  // A city the customer named but we do not list is kept as given, not filed under Nairobi.
+  if (cityLine) return { city: cityLine.slice(0, 64), county: "" };
   return { city: "Nairobi", county: "Nairobi County" };
 }
 

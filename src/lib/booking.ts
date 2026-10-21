@@ -13,6 +13,17 @@ export function getLocalDateString(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * True when an ISO timestamp (stored in UTC) falls on the given local calendar day. Comparing the
+ * stored string's date prefix instead is wrong whenever the server's time zone is not UTC, for
+ * example between midnight and 03:00 in Nairobi.
+ */
+export function isOnLocalDate(iso: string | undefined, day: string): boolean {
+  if (!iso) return false;
+  const t = new Date(iso);
+  return !Number.isNaN(t.getTime()) && getLocalDateString(t) === day;
+}
+
 export type BookingStatus = "pending" | "paid" | "failed" | "cancelled" | "refunded";
 export type BookingChannel = "web" | "pwa" | "mobile" | "agent_walkin" | "agent_callin";
 
