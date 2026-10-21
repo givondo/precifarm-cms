@@ -6,43 +6,20 @@ import {
 import { formatCurrency, formatPhoneDisplay } from "@/lib/booking";
 import { getPaymentMode } from "@/lib/env";
 import { paymentModeDisplay } from "@/lib/payment-ui";
-import {
-  chargingSiteLabels,
-  installProductLabels,
-  installStageBadgeClass,
-  installStageLabels,
-} from "@/lib/ev-ops";
+import { chargingSiteLabels, installProductLabels } from "@/lib/ev-ops";
+import { chargingFlow, installFlow, PRODUCT_KEY, SITE_KEY } from "@/lib/flow";
+import FlowStrip from "@/components/FlowStrip";
+import StageSteps from "@/components/StageSteps";
 import Link from "next/link";
 import { requirePageAgent } from "@/lib/auth";
-
-const quickLinks = [
-  {
-    href: "/installs",
-    title: "Home installs",
-    desc: "Pulse, Pod and Spark — survey to commissioning",
-  },
-  {
-    href: "/charging-sessions",
-    title: "Charging sessions",
-    desc: "Corridor DC, Depot, Boda Hub — kWh and M-Pesa",
-  },
-  {
-    href: "/customers",
-    title: "Customers",
-    desc: "Lookup by phone, install ref or session ref",
-  },
-  {
-    href: "/reconciliation",
-    title: "M-Pesa reconciliation",
-    desc: "Deposits, instalments and session payments",
-  },
-];
 
 export default async function DashboardPage() {
   await requirePageAgent();
   const stats = await getDashboardStats();
-  const recentInstalls = (await listInstallOrders()).slice(0, 5);
-  const recentSessions = (await listChargingSessions()).slice(0, 5);
+  const installs = await listInstallOrders();
+  const sessions = await listChargingSessions();
+  const recentInstalls = installs.slice(0, 5);
+  const recentSessions = sessions.slice(0, 5);
   const payment = paymentModeDisplay(getPaymentMode());
 
   return (
@@ -50,9 +27,7 @@ export default async function DashboardPage() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            EV charging — home installs, public sessions and M-Pesa
-          </p>
+          <p className="text-sm text-gray-500 mt-1">How home installs and public charging are moving today.</p>
         </div>
         <div
           className={`rounded-md border px-3 py-2 text-sm ${
@@ -68,64 +43,38 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-        Home charging pipeline
-      </h2>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Link href="/installs" className="stat-card hover:border-green-300 transition-colors">
-          <div className="label">Survey pipeline</div>
-          <div className="value">{stats.surveyPipeline}</div>
-        </Link>
-        <div className="stat-card">
-          <div className="label">Surveys today</div>
-          <div className="value">{stats.surveysToday}</div>
-        </div>
-        <Link href="/installs" className="stat-card hover:border-green-300 transition-colors">
-          <div className="label">Commissioned (total)</div>
-          <div className="value">{stats.commissionedTotal}</div>
-        </Link>
-        <div className="stat-card">
-          <div className="label">Lipa Pole Pole active</div>
-          <div className="value">{stats.lipaPolePoleActive}</div>
-        </div>
+      <div className="flow-head">
+        <h2>
+          <Link href="/installs">Home installs</Link>
+        </h2>
+        <span className="flow-facts">
+          <span>
+            <b>{stats.surveysToday}</b> surveys today
+          </span>
+          <span>
+            <b>{stats.lipaPolePoleActive}</b> on Lipa Pole Pole
+          </span>
+          <span>
+            <b>{formatCurrency(stats.installDepositsTotal)}</b> in deposits
+          </span>
+        </span>
       </div>
+      <FlowStrip label="Home install pipeline" stations={installFlow(installs)} legend={PRODUCT_KEY} />
 
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-        Public charging
-      </h2>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Link
-          href="/charging-sessions"
-          className="stat-card hover:border-green-300 transition-colors"
-        >
-          <div className="label">Sessions today</div>
-          <div className="value">{stats.chargingSessionsToday}</div>
-        </Link>
-        <div className="stat-card">
-          <div className="label">kWh delivered today</div>
-          <div className="value">{stats.kwhDeliveredToday}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Session revenue</div>
-          <div className="value text-lg">{formatCurrency(stats.sessionRevenueTotal)}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Install deposits</div>
-          <div className="value text-lg">{formatCurrency(stats.installDepositsTotal)}</div>
-        </div>
+      <div className="flow-head">
+        <h2>
+          <Link href="/charging-sessions">Public charging</Link>
+        </h2>
+        <span className="flow-facts">
+          <span>
+            <b>{stats.chargingSessionsToday}</b> sessions today
+          </span>
+          <span>
+            <b>{stats.kwhDeliveredToday}</b> kWh today
+          </span>
+        </span>
       </div>
-
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">
-        Quick actions
-      </h2>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        {quickLinks.map((link) => (
-          <Link key={link.href} href={link.href} className="quick-link">
-            <div className="title">{link.title}</div>
-            <div className="desc">{link.desc}</div>
-          </Link>
-        ))}
-      </div>
+      <FlowStrip label="Public charging sessions" stations={chargingFlow(sessions)} legend={SITE_KEY} />
 
       <div className="grid lg:grid-cols-2 gap-8">
         <div>
@@ -160,11 +109,7 @@ export default async function DashboardPage() {
                       <td className="text-sm">{installProductLabels[order.product]}</td>
                       <td className="text-sm">{order.city}</td>
                       <td>
-                        <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${installStageBadgeClass[order.stage]}`}
-                        >
-                          {installStageLabels[order.stage]}
-                        </span>
+                        <StageSteps stage={order.stage} />
                       </td>
                       <td>
                         <div className="font-medium text-sm">{order.contactName}</div>
@@ -213,7 +158,7 @@ export default async function DashboardPage() {
                         {chargingSiteLabels[session.siteType]}
                         <div className="text-xs text-gray-500">{session.siteName}</div>
                       </td>
-                      <td className="text-sm">{session.kwhDelivered ?? "—"}</td>
+                      <td className="text-sm">{session.kwhDelivered ?? "n/a"}</td>
                       <td className="font-medium">{formatCurrency(session.amountKes)}</td>
                       <td className="text-sm capitalize">{session.status}</td>
                     </tr>

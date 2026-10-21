@@ -237,3 +237,59 @@ a.stat-card:hover::after { transform: scaleX(1); }
 .pf-page h2.text-xs { font-size: 13px; color: var(--dim); }
 .pf-page td .font-mono, .pf-page td.font-mono, .pf-page td code { white-space: nowrap; }
 .pf-signout { white-space: nowrap; }
+
+/* Workflow strips: stations joined by arrows, a count and one dot per record each. Words stay short. */
+:root { --fl-you: #1d4ed8; --fl-agent: #60a5fa; --fl-landed: #12307a; --fl-muted: #a3b1ca; --fl-warn: var(--fault); }
+.t-you { --fl-c: var(--fl-you); } .t-agent { --fl-c: var(--fl-agent); } .t-landed { --fl-c: var(--fl-landed); }
+.t-muted { --fl-c: var(--fl-muted); } .t-warn { --fl-c: var(--fl-warn); }
+.flow { margin-bottom: 28px; }
+.flow-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 18px; margin-bottom: 10px; }
+.flow-head h2 { font-size: 15px; font-weight: 700; color: var(--ink); }
+.flow-head .flow-facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12.5px; color: var(--dim); }
+.flow-head .flow-facts b { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+.flow-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); margin: -2px 0 10px; }
+.flow-key span { display: inline-flex; align-items: center; gap: 6px; }
+.flow-key i, .flow-dots i { display: block; width: 9px; height: 9px; border-radius: 3px; background: var(--fl-c); flex: none; }
+.flow-row { list-style: none; margin: 0; padding: 2px 2px 6px; display: flex; align-items: stretch; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: thin; }
+.flow-cell { display: flex; align-items: stretch; flex: 1 1 0; min-width: 0; animation: pfRise .5s var(--ease) both; }
+.flow-st { position: relative; flex: 1 1 auto; min-width: 132px; display: flex; flex-direction: column; gap: 3px; padding: 12px 14px 12px 16px; border-radius: 14px;
+  background: var(--surface); border: 1px solid color-mix(in srgb, var(--fl-c) 30%, var(--line)); border-left: 4px solid var(--fl-c); box-shadow: var(--shadow);
+  color: var(--ink); text-decoration: none; scroll-snap-align: start; transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s; }
+a.flow-st:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+a.flow-st:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.flow-st.is-active { background: color-mix(in srgb, var(--fl-c) 9%, var(--surface)); border-color: var(--fl-c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fl-c) 18%, transparent), var(--shadow); }
+.flow-label { font-size: 12.5px; font-weight: 650; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flow-mid { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.flow-val { font-size: 28px; line-height: 1.05; font-weight: 800; letter-spacing: -.03em; color: var(--fl-c); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flow-sub { font-size: 11.5px; color: var(--faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.flow-dots { display: flex; flex-wrap: wrap; gap: 3px; min-height: 9px; margin-top: 4px; }
+.flow-dots em { font-style: normal; font-size: 10.5px; color: var(--faint); line-height: 9px; }
+.flow-arrow { position: relative; flex: 0 0 34px; align-self: center; height: 2px; margin: 0 2px; background: var(--line-strong); }
+.flow-arrow::after { content: ""; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left: 7px solid var(--line-strong); border-right: 0; }
+.flow-arrow i { position: absolute; top: -3px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--fl-you); opacity: 0; }
+.flow-arrow.is-moving { background: color-mix(in srgb, var(--fl-you) 45%, var(--line-strong)); }
+.flow-arrow.is-moving::after { border-left-color: color-mix(in srgb, var(--fl-you) 60%, var(--line-strong)); }
+.flow-arrow.is-moving i { animation: flowDot 2.4s linear infinite; }
+@keyframes flowDot { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: calc(100% - 8px); opacity: 0; } }
+.flow-st.is-empty { border-left-color: var(--line-strong); box-shadow: none; }
+.flow-st.is-empty .flow-val { color: var(--faint); }
+/* On a phone the flow runs down the page, so every stage stays in view. */
+@media (max-width: 760px) {
+  .flow-row { flex-direction: column; overflow: visible; }
+  .flow-cell { flex-direction: column; align-items: stretch; }
+  .flow-st { min-width: 0; }
+  .flow-arrow { flex: 0 0 18px; width: 2px; height: 18px; margin: 2px auto; }
+  .flow-arrow::after { right: auto; top: auto; left: -4px; bottom: -1px; border: 5px solid transparent; border-top: 7px solid var(--line-strong); border-bottom: 0; }
+  .flow-arrow.is-moving::after { border-left-color: transparent; border-top-color: color-mix(in srgb, var(--fl-you) 60%, var(--line-strong)); }
+  .flow-arrow i { left: -3px; top: 0; }
+  .flow-arrow.is-moving i { animation-name: flowDotDown; }
+}
+@keyframes flowDotDown { 0% { top: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: calc(100% - 8px); opacity: 0; } }
+/* Where one order sits: a segment per stage. */
+.steps { display: inline-flex; flex-direction: column; gap: 4px; }
+.steps-bar { display: inline-flex; gap: 3px; }
+.steps-bar i { width: 14px; height: 6px; border-radius: 3px; background: var(--line); }
+.steps-bar i.done { background: var(--fl-landed); }
+.steps-bar i.now { background: var(--fl-you); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fl-you) 20%, transparent); }
+.steps-label { font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .flow-cell { animation: none; } .flow-arrow.is-moving i { animation: none; opacity: 0; } }
