@@ -26,7 +26,8 @@ export async function getSessionAgent(): Promise<SessionAgent | null> {
   if (!agent) return null;
   // Sign-out and password changes set sessionsNotBefore; older sessions (or ones without an issue
   // time) stop working on every device.
-  if (agent.sessionsNotBefore && (session.iat ?? 0) * 1000 < agent.sessionsNotBefore) return null;
+  const issuedMs = session.iatMs ?? (session.iat ?? 0) * 1000;
+  if (agent.sessionsNotBefore && issuedMs <= agent.sessionsNotBefore) return null;
 
   return {
     id: agent.id,
@@ -77,8 +78,8 @@ export async function authenticateAgent(
 export async function revokeAgentSessions(agentId: string, nowMs = Date.now()): Promise<void> {
   await mutateStore((store) => {
     const a = store.agents.find((x) => x.id === agentId);
-    // Whole seconds, matching the token's iat, so a session signed in the same second also ends.
-    if (a) a.sessionsNotBefore = Math.ceil(nowMs / 1000) * 1000;
+    // Milliseconds, matching the token's iatMs: sessions issued up to now end, the next sign-in works.
+    if (a) a.sessionsNotBefore = nowMs;
   });
 }
 

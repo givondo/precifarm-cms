@@ -28,3 +28,14 @@ test("right-most X-Forwarded-For entry is used, not the spoofable left-most", ()
   delete process.env.NETLIFY;
   assert.equal(getClientIp(req({ "x-forwarded-for": "6.6.6.6, 203.0.113.7" })), "203.0.113.7");
 });
+
+test("rateLimited only reads the count; only recorded attempts use the allowance", async () => {
+  const { checkRateLimit, rateLimited } = await import("../src/lib/api/rate-limit");
+  const key = "login:203.0.113.77";
+  for (let i = 0; i < 20; i++) assert.equal(rateLimited(key, 3), false, "checking alone never blocks");
+  checkRateLimit(key, 3, 60_000);
+  checkRateLimit(key, 3, 60_000);
+  assert.equal(rateLimited(key, 3), false);
+  checkRateLimit(key, 3, 60_000);
+  assert.equal(rateLimited(key, 3), true);
+});

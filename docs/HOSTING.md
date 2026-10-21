@@ -41,6 +41,9 @@ https. Writes that carry a session cookie from another site are refused.
 - Analytics ingest needs `ANALYTICS_INGEST_KEY`; analytics and SEO also need PostgreSQL and answer
   503 on the file store.
 - `/api/v1/health` answers `{ ok }` to everyone and the configuration summary to an admin only.
+- Public survey intake: 5 requests a minute per address, and at most 60 saved surveys an hour in
+  total (rejected requests do not count), because each saved survey rewrites the data file.
+- Failed sign-ins: 10 per address in 15 minutes; successful sign-ins do not count.
 
 ## Restoring the data file
 

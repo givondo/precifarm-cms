@@ -8,8 +8,10 @@ export type SessionPayload = {
   sub: string;
   /** Expiry, seconds since epoch. */
   exp: number;
-  /** Issue time, seconds since epoch; compared with the agent's sessionsNotBefore. */
+  /** Issue time, seconds since epoch. */
   iat?: number;
+  /** Issue time in milliseconds; compared with the agent's sessionsNotBefore. */
+  iatMs?: number;
 };
 
 type GlobalWithDevSecret = typeof globalThis & { __precifarmDevSessionSecret?: string };
@@ -54,6 +56,7 @@ export function signSessionToken(
     sub: agentId,
     exp: Math.floor(nowMs / 1000) + maxAgeSeconds,
     iat: Math.floor(nowMs / 1000),
+    iatMs: nowMs,
   };
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   return `${encoded}.${sign(encoded, secret)}`;
@@ -91,9 +94,12 @@ export function verifySessionToken(
   ) {
     return null;
   }
-  const { sub, exp, iat } = payload as SessionPayload;
+  const { sub, exp, iat, iatMs } = payload as SessionPayload;
   if (!sub || exp * 1000 <= nowMs) return null;
-  return typeof iat === "number" ? { sub, exp, iat } : { sub, exp };
+  const out: SessionPayload = { sub, exp };
+  if (typeof iat === "number") out.iat = iat;
+  if (typeof iatMs === "number") out.iatMs = iatMs;
+  return out;
 }
 
 /** Cookie attributes for the agent session cookie. */

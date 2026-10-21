@@ -70,3 +70,13 @@ test("sessions carry an issue time, so sign-out can end them", () => {
   const p = verifySessionToken(signSessionToken("agent-1", secret, 3600, now), secret, now + 1000);
   assert.equal(p?.iat, now / 1000);
 });
+
+test("a sign-in right after signing out stays valid; sessions from before do not", () => {
+  const secret = "test-secret-0123456789abcdef0123456789abcdef";
+  const t = 1_800_000_000_500;
+  const before = verifySessionToken(signSessionToken("a", secret, 3600, t - 1), secret, t)!;
+  const after = verifySessionToken(signSessionToken("a", secret, 3600, t + 1), secret, t + 2)!;
+  const notBefore = t; // set by sign-out at time t
+  assert.ok(before.iatMs! <= notBefore, "session from before sign-out ends");
+  assert.ok(after.iatMs! > notBefore, "sign-in in the same second after sign-out works");
+});

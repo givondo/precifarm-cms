@@ -3,9 +3,9 @@ import { cookies } from "next/headers";
 import { authenticateAgent, SESSION_COOKIE } from "@/lib/auth";
 import { trackCmsAudit, trackServerEvent } from "@/lib/analytics";
 import { getSessionSecret, sessionCookieOptions, signSessionToken } from "@/lib/security/session";
-import { checkRateLimit, getClientIp } from "@/lib/api/rate-limit";
+import { checkRateLimit, getClientIp, rateLimited } from "@/lib/api/rate-limit";
 
-/** Login attempts per client IP per window, to slow password guessing. */
+/** Failed login attempts per client IP per window, to slow password guessing. Successful sign-ins do not count, so agents behind one office address do not block each other. */
 const LOGIN_LIMIT = 10;
 const LOGIN_WINDOW_MS = 15 * 60_000;
 
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
   }
 
   const ip = getClientIp(request);
-  if (!checkRateLimit(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)) {
+  if (rateLimited(`login:${ip}`, LOGIN_LIMIT)) {
     return NextResponse.json(
       { error: "Too many login attempts. Try again in 15 minutes." },
       { status: 429, headers: { "Retry-After": String(LOGIN_WINDOW_MS / 1000) } }
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
 
   const agent = await authenticateAgent(email, password);
   if (!agent) {
+    checkRateLimit(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
     trackServerEvent("cms_login_failed", { email_domain: email.includes("@") ? email.split("@")[1] : "unknown" }, {
       platform: "cms",
     });

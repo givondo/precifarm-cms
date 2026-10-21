@@ -46,3 +46,4 @@ test("login is throttled to 10 attempts per IP per window", async () => {
   // A different client is unaffected.
   assert.equal((await attempt("198.51.100.21")).status, 401);
 });
+

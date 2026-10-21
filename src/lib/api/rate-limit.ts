@@ -8,6 +8,12 @@ function pruneExpired(now: number) {
   }
 }
 
+/** True when the key has used its allowance in the current window, without counting this call. */
+export function rateLimited(key: string, limit: number): boolean {
+  const entry = rateLimit.get(key);
+  return !!entry && entry.resetAt >= Date.now() && entry.count >= limit;
+}
+
 export function checkRateLimit(
   ip: string,
   limit: number,

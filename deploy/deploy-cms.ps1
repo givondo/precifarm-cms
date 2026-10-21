@@ -67,14 +67,20 @@ if (-not $Account) { throw "Sign in first: gcloud auth login" }
 if ($AdminEmail -notmatch "^[^@\s]+@[^@\s]+\.[^@\s]+$") { throw "AdminEmail does not look like an email address." }
 Write-Host "Deploying as $Account to project $Project"
 
-Step "0. Existing service"
+Step "1. Services"
+Run @("services", "enable", "run.googleapis.com", "cloudbuild.googleapis.com", "artifactregistry.googleapis.com", "secretmanager.googleapis.com", "storage.googleapis.com", "--project", $Project)
+if (-not (Exists @("artifacts", "repositories", "describe", "precifarm", "--location", $RegistryRegion, "--project", $Project))) {
+  Run @("artifacts", "repositories", "create", "precifarm", "--repository-format=docker", "--location", $RegistryRegion, "--description=Precifarm containers", "--project", $Project)
+}
+
+Step "1b. Existing service"
 $ErrorActionPreference = "Continue"
-$out = (& gcloud run services describe $Service --region $Region --project $Project --format "json(spec.template.spec.containers[0].env)" 2>&1 | Out-String)
+$out = (& gcloud run services describe $Service --region $Region --project $Project --quiet --format "json(spec.template.spec.containers[0].env)" 2>&1 | Out-String)
 $code = $LASTEXITCODE
 $ErrorActionPreference = "Stop"
 $existing = $null
 if ($code -eq 0) { $existing = $out }
-elseif ($out -notmatch "could not be found|NOT_FOUND|does not exist") {
+elseif ($out -notmatch "Cannot find service|could not be found|NOT_FOUND|does not exist") {
   # Anything other than "not found" (permissions, network, API) means we cannot tell; stop safely.
   throw "Could not check for an existing ${Service}: $out"
 }
@@ -83,22 +89,16 @@ if ($existing -and ($existing -match '"DATABASE_URL"' -or $existing -match '"SUP
 }
 if ($existing) { Write-Host "Updating the existing $Service (no database configured on it)." } else { Write-Host "No $Service yet in $Region; creating it." }
 
-Step "1. Services"
-Run @("services", "enable", "run.googleapis.com", "cloudbuild.googleapis.com", "artifactregistry.googleapis.com", "secretmanager.googleapis.com", "storage.googleapis.com", "--project", $Project)
-if (-not (Exists @("artifacts", "repositories", "describe", "precifarm", "--location", $RegistryRegion, "--project", $Project))) {
-  Run @("artifacts", "repositories", "create", "precifarm", "--repository-format=docker", "--location", $RegistryRegion, "--description=Precifarm containers", "--project", $Project)
-}
-
 Step "2. Private bucket gs://$Bucket"
 if (-not (Exists @("storage", "buckets", "describe", "gs://$Bucket", "--project", $Project))) {
   Run @("storage", "buckets", "create", "gs://$Bucket", "--location", $Region, "--uniform-bucket-level-access", "--public-access-prevention", "--project", $Project)
 }
 # Keep earlier versions of the data file so a bad write can be rolled back: 30 days of history,
-# at most 200 versions per file, so the history cannot grow without limit.
+# by age only, so a burst of writes can never push the good versions out.
 Run @("storage", "buckets", "update", "gs://$Bucket", "--versioning", "--project", $Project)
 $life = [IO.Path]::GetTempFileName()
 try {
-  [IO.File]::WriteAllText($life, '{"rule":[{"action":{"type":"Delete"},"condition":{"isLive":false,"daysSinceNoncurrentTime":30}},{"action":{"type":"Delete"},"condition":{"isLive":false,"numNewerVersions":200}}]}')
+  [IO.File]::WriteAllText($life, '{"rule":[{"action":{"type":"Delete"},"condition":{"isLive":false,"daysSinceNoncurrentTime":30}}]}')
   Run @("storage", "buckets", "update", "gs://$Bucket", "--lifecycle-file=$life", "--project", $Project)
 } finally { Remove-Item $life -Force -ErrorAction SilentlyContinue }
 
