@@ -38,7 +38,7 @@ https. Writes that carry a session cookie from another site are refused.
   replaces it with seed data. Restore the previous object version from the bucket.
 - No demo installs, sessions or riders unless `CMS_DEMO_DATA=true`.
 - Any account still on the password published in early versions is deactivated.
-- Analytics ingest needs `ANALYTICS_INGEST_KEY`; analytics and SEO also need PostgreSQL and answer
+- Analytics ingest is open unless `ANALYTICS_INGEST_KEY` is set (the website and app send no key today); analytics and SEO also need PostgreSQL and answer
   503 on the file store.
 - `/api/v1/health` answers `{ ok }` to everyone and the configuration summary to an admin only.
 - Public survey intake: 5 requests a minute per address, and at most 60 saved surveys an hour in

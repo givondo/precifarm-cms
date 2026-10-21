@@ -17,8 +17,9 @@ const ERROR_WINDOW_MS = 60_000;
 
 function checkIngestAuth(request: Request): boolean {
   const requiredKey = getAnalyticsIngestKey();
-  // Production requires ANALYTICS_INGEST_KEY; without it nothing may write events.
-  if (!requiredKey) return process.env.NODE_ENV !== "production";
+  // Open when ANALYTICS_INGEST_KEY is unset, as the website and app send events without one today.
+  // Set the key (and send it from those clients) to close ingest; comparison is constant-time.
+  if (!requiredKey) return true;
   return tokensMatch(request.headers.get("x-analytics-key"), requiredKey);
 }
 

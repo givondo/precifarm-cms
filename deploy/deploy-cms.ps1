@@ -18,8 +18,10 @@ What it does (each step is skipped when it already exists, so it is safe to run 
   7. Maps cms.precifarm.com and prints the DNS record to add at Hostinger.
 Needs gcloud, node and git on PATH.
 
-Safety: if a service with this name already exists and uses a database (DATABASE_URL or
-SUPABASE_DB_PASSWORD), the script stops instead of switching it to the bucket store.
+Database mode: if a service with this name already runs with a database (DATABASE_URL or
+SUPABASE_DB_PASSWORD), the script updates it in place instead: data stays in the database, every
+existing setting is kept (payments included), the service keeps its own account, and nothing changes
+until you type UPDATE. It prints the current revision and the command to roll back to it.
 
 Approval: AP-023 (tier C), recorded 21 October 2026.
 #>
@@ -75,32 +77,58 @@ if (-not (Exists @("artifacts", "repositories", "describe", "precifarm", "--loca
 
 Step "1b. Existing service"
 $ErrorActionPreference = "Continue"
-$out = (& gcloud run services describe $Service --region $Region --project $Project --quiet --format "json(spec.template.spec.containers[0].env)" 2>&1 | Out-String)
+$number = (& gcloud projects describe $Project --format "value(projectNumber)" 2>$null)
+$out = (& gcloud run services describe $Service --region $Region --project $Project --quiet --format json 2>&1 | Out-String)
 $code = $LASTEXITCODE
 $ErrorActionPreference = "Stop"
-$existing = $null
-if ($code -eq 0) { $existing = $out }
+$svc = $null
+if ($code -eq 0) { $svc = ($out | ConvertFrom-Json) }
 elseif ($out -notmatch "Cannot find service|could not be found|NOT_FOUND|does not exist") {
   # Anything other than "not found" (permissions, network, API) means we cannot tell; stop safely.
   throw "Could not check for an existing ${Service}: $out"
 }
-if ($existing -and ($existing -match '"DATABASE_URL"' -or $existing -match '"SUPABASE_DB_PASSWORD"')) {
-  throw "$Service already runs in $Region with a database. This script would switch it to the bucket store and hide that data. Stop here and ask Claude to add the database option."
+$out = $null   # the description can hold settings; keep it out of the transcript
+# Settings the live service already has: literal values and Secret Manager references, kept as they are.
+$plainEnv = [ordered]@{}; $secretRefs = [ordered]@{}
+if ($svc) {
+  foreach ($e in @($svc.spec.template.spec.containers[0].env)) {
+    if (-not $e -or -not $e.name) { continue }
+    if ($e.valueFrom -and $e.valueFrom.secretKeyRef) { $secretRefs[$e.name] = $true } else { $plainEnv[$e.name] = [string]$e.value }
+  }
 }
-if ($existing) { Write-Host "Updating the existing $Service (no database configured on it)." } else { Write-Host "No $Service yet in $Region; creating it." }
+$DbMode = $plainEnv.Contains("DATABASE_URL") -or $plainEnv.Contains("SUPABASE_DB_PASSWORD") -or $secretRefs.Contains("DATABASE_URL") -or $secretRefs.Contains("SUPABASE_DB_PASSWORD")
+$RunSa = $Sa
+if ($DbMode) {
+  $RunSa = [string]$svc.spec.template.spec.serviceAccountName
+  if (-not $RunSa) { $RunSa = "$number-compute@developer.gserviceaccount.com" }
+  $current = [string]$svc.status.latestReadyRevisionName
+  if ($plainEnv.Contains("DEMO_PAYMENT")) { $payment = "DEMO_PAYMENT=" + $plainEnv["DEMO_PAYMENT"] } elseif ($secretRefs.Contains("DEMO_PAYMENT")) { $payment = "DEMO_PAYMENT from Secret Manager" } else { $payment = "DEMO_PAYMENT not set (demo mode)" }
+  Write-Host ""
+  Write-Host "$Service is live in $Region with a database. This run updates it in place:" -ForegroundColor Yellow
+  Write-Host "  - data stays in its database; every existing setting is kept, including payments ($payment)"
+  Write-Host "  - new code: signed sessions, hashed passwords, retired booking off, page and host protection"
+  Write-Host "  - sign-in becomes $AdminEmail with the password you choose; accounts on the old published"
+  Write-Host "    password are switched off, and other accounts need a password reset (scripts/set-agent-password.ts)"
+  Write-Host "  - current revision: $current"
+  Write-Host "    to undo: gcloud run services update-traffic $Service --region $Region --project $Project --to-revisions $current=100"
+  $answer = Read-Host "Type UPDATE to go ahead (anything else stops with nothing changed)"
+  if ($answer -cne "UPDATE") { throw "Stopped. Nothing was changed." }
+} elseif ($svc) { Write-Host "Updating the existing $Service (no database configured on it)." } else { Write-Host "No $Service yet in $Region; creating it." }
 
-Step "2. Private bucket gs://$Bucket"
-if (-not (Exists @("storage", "buckets", "describe", "gs://$Bucket", "--project", $Project))) {
-  Run @("storage", "buckets", "create", "gs://$Bucket", "--location", $Region, "--uniform-bucket-level-access", "--public-access-prevention", "--project", $Project)
+if (-not $DbMode) {
+  Step "2. Private bucket gs://$Bucket"
+  if (-not (Exists @("storage", "buckets", "describe", "gs://$Bucket", "--project", $Project))) {
+    Run @("storage", "buckets", "create", "gs://$Bucket", "--location", $Region, "--uniform-bucket-level-access", "--public-access-prevention", "--project", $Project)
+  }
+  # Keep earlier versions of the data file so a bad write can be rolled back: 30 days of history,
+  # by age only, so a burst of writes can never push the good versions out.
+  Run @("storage", "buckets", "update", "gs://$Bucket", "--versioning", "--project", $Project)
+  $life = [IO.Path]::GetTempFileName()
+  try {
+    [IO.File]::WriteAllText($life, '{"rule":[{"action":{"type":"Delete"},"condition":{"isLive":false,"daysSinceNoncurrentTime":30}}]}')
+    Run @("storage", "buckets", "update", "gs://$Bucket", "--lifecycle-file=$life", "--project", $Project)
+  } finally { Remove-Item $life -Force -ErrorAction SilentlyContinue }
 }
-# Keep earlier versions of the data file so a bad write can be rolled back: 30 days of history,
-# by age only, so a burst of writes can never push the good versions out.
-Run @("storage", "buckets", "update", "gs://$Bucket", "--versioning", "--project", $Project)
-$life = [IO.Path]::GetTempFileName()
-try {
-  [IO.File]::WriteAllText($life, '{"rule":[{"action":{"type":"Delete"},"condition":{"isLive":false,"daysSinceNoncurrentTime":30}}]}')
-  Run @("storage", "buckets", "update", "gs://$Bucket", "--lifecycle-file=$life", "--project", $Project)
-} finally { Remove-Item $life -Force -ErrorAction SilentlyContinue }
 
 Step "3. Admin password, session key and callback token"
 if ($NewPassword -or -not (Exists @("secrets", "describe", "cms-admin-password-hash", "--project", $Project))) {
@@ -128,10 +156,13 @@ Step "4. Service account with the least access"
 if (-not (Exists @("iam", "service-accounts", "describe", $Sa, "--project", $Project))) {
   Run @("iam", "service-accounts", "create", "precifarm-cms", "--display-name=Precifarm CMS", "--project", $Project)
 }
+# In database mode the service keeps its own account, which already reads the database secrets.
 foreach ($s in @("cms-admin-password-hash", "cms-session-secret", "cms-mpesa-callback-token")) {
-  Run @("secrets", "add-iam-policy-binding", $s, "--member=serviceAccount:$Sa", "--role=roles/secretmanager.secretAccessor", "--project", $Project, "--quiet")
+  Run @("secrets", "add-iam-policy-binding", $s, "--member=serviceAccount:$RunSa", "--role=roles/secretmanager.secretAccessor", "--project", $Project, "--quiet")
 }
-Run @("storage", "buckets", "add-iam-policy-binding", "gs://$Bucket", "--member=serviceAccount:$Sa", "--role=roles/storage.objectUser", "--project", $Project)
+if (-not $DbMode) {
+  Run @("storage", "buckets", "add-iam-policy-binding", "gs://$Bucket", "--member=serviceAccount:$Sa", "--role=roles/storage.objectUser", "--project", $Project)
+}
 
 Step "5. Build the image"
 # A copy synced by Claude records the branch commit it matches in .deploy-commit; otherwise use git.
@@ -141,38 +172,59 @@ Push-Location $Root
 try { Run @("builds", "submit", "--tag", "${Image}:$Commit", "--project", $Project, ".") } finally { Pop-Location }
 
 Step "6. Deploy $Service"
-# Cloud Run answers on the deterministic SERVICE-PROJECTNUMBER.REGION.run.app name and the older hashed
-# one in status.url. Allow both, and the custom domain; every other Host header gets a 421.
+# Cloud Run answers on the deterministic SERVICE-PROJECTNUMBER.REGION.run.app name, the older hashed
+# one in status.url, and any custom domains already mapped to it. Allow those and cms.precifarm.com;
+# every other Host header gets a 421.
 $ErrorActionPreference = "Continue"
-$number = (& gcloud projects describe $Project --format "value(projectNumber)" 2>$null)
 $legacy = (& gcloud run services describe $Service --region $Region --project $Project --format "value(status.url)" 2>$null)
+$mapped = @(& gcloud beta run domain-mappings list --region $Region --project $Project --format "value(metadata.name,spec.routeName)" 2>$null)
 $ErrorActionPreference = "Stop"
-$hostList = @($Domain)
+# api.precifarm.com is the website's CMS_API_URL and the mobile app's API host: always allowed.
+$hostList = @($Domain, "api.precifarm.com")
 if ($number) { $hostList += "$Service-$number.$Region.run.app" }
 if ($legacy) { $hostList += ([Uri]$legacy).Host }
+foreach ($line in $mapped) { $f = "$line".Split("`t", [StringSplitOptions]::RemoveEmptyEntries); if ($f.Count -ge 2 -and $f[1].Trim() -eq $Service) { $hostList += $f[0].Trim() } }
 $hosts = ($hostList | Select-Object -Unique) -join ","
+$ours = @("CMS_ADMIN_PASSWORD_HASH", "SESSION_SECRET", "MPESA_CALLBACK_TOKEN")
 # Settings go through a file, not --set-env-vars: values contain "@", "," and spaces.
 function EnvFile($allowed) {
-  $vars = [ordered]@{
-    CMS_ALLOWED_HOSTS = $allowed; CMS_ADMIN_EMAIL = $AdminEmail; CMS_ADMIN_NAME = $AdminName; CMS_DATA_DIR = "/data"
-    DEMO_PAYMENT = "true"; BOOKING_ENABLED = "false"; NEXT_PUBLIC_SITE_URL = "https://precifarm.com"; ANALYTICS_ENVIRONMENT = "production"
+  $vars = [ordered]@{}
+  if ($DbMode) {
+    # Keep every literal setting the live service has, except names that now come from Secret Manager.
+    foreach ($k in $plainEnv.Keys) { if ($ours -notcontains $k) { $vars[$k] = $plainEnv[$k] } }
+  } else {
+    $vars["CMS_DATA_DIR"] = "/data"; $vars["DEMO_PAYMENT"] = "true"
+    $vars["NEXT_PUBLIC_SITE_URL"] = "https://precifarm.com"; $vars["ANALYTICS_ENVIRONMENT"] = "production"
   }
+  $vars["CMS_ALLOWED_HOSTS"] = $allowed; $vars["CMS_ADMIN_EMAIL"] = $AdminEmail; $vars["CMS_ADMIN_NAME"] = $AdminName; $vars["BOOKING_ENABLED"] = "false"
+  foreach ($k in @($vars.Keys)) { if ($secretRefs.Contains($k)) { $vars.Remove($k) } }   # never shadow a secret
   $f = [IO.Path]::GetTempFileName()
   [IO.File]::WriteAllText($f, ($vars | ConvertTo-Json))   # JSON is valid YAML for --env-vars-file
   return $f
 }
+$secretMap = "CMS_ADMIN_PASSWORD_HASH=cms-admin-password-hash:latest,SESSION_SECRET=cms-session-secret:latest,MPESA_CALLBACK_TOKEN=cms-mpesa-callback-token:latest"
 $envFile = EnvFile $hosts
 try {
-  Run @("run", "deploy", $Service,
-    "--image", "${Image}:$Commit", "--region", $Region, "--project", $Project,
-    "--service-account", $Sa, "--allow-unauthenticated", "--port", "8080",
-    "--execution-environment", "gen2", "--min-instances", "0", "--max-instances", "1",
-    "--cpu", "1", "--memory", "1Gi", "--timeout", "300", "--concurrency", "20",
-    "--set-secrets", "CMS_ADMIN_PASSWORD_HASH=cms-admin-password-hash:latest,SESSION_SECRET=cms-session-secret:latest,MPESA_CALLBACK_TOKEN=cms-mpesa-callback-token:latest",
-    "--env-vars-file", $envFile,
-    "--clear-volumes", "--clear-volume-mounts",
-    "--add-volume", "name=data,type=cloud-storage,bucket=$Bucket,mount-options=uid=1001;gid=1001",
-    "--add-volume-mount", "volume=data,mount-path=/data")
+  if ($DbMode) {
+    # In place: new image, the three new secrets and these settings; scaling, database secrets and
+    # everything else stay as configured.
+    Run @("run", "deploy", $Service,
+      "--image", "${Image}:$Commit", "--region", $Region, "--project", $Project,
+      "--service-account", $RunSa, "--allow-unauthenticated",
+      "--update-secrets", $secretMap,
+      "--env-vars-file", $envFile)
+  } else {
+    Run @("run", "deploy", $Service,
+      "--image", "${Image}:$Commit", "--region", $Region, "--project", $Project,
+      "--service-account", $Sa, "--allow-unauthenticated", "--port", "8080",
+      "--execution-environment", "gen2", "--min-instances", "0", "--max-instances", "1",
+      "--cpu", "1", "--memory", "1Gi", "--timeout", "300", "--concurrency", "20",
+      "--set-secrets", $secretMap,
+      "--env-vars-file", $envFile,
+      "--clear-volumes", "--clear-volume-mounts",
+      "--add-volume", "name=data,type=cloud-storage,bucket=$Bucket,mount-options=uid=1001;gid=1001",
+      "--add-volume-mount", "volume=data,mount-path=/data")
+  }
 } finally { Remove-Item $envFile -Force -ErrorAction SilentlyContinue }
 $ErrorActionPreference = "Continue"; $legacy = (& gcloud run services describe $Service --region $Region --project $Project --format "value(status.url)" 2>$null); $ErrorActionPreference = "Stop"
 if ($legacy -and $hosts -notlike "*$(([Uri]$legacy).Host)*") {
@@ -182,7 +234,7 @@ if ($legacy -and $hosts -notlike "*$(([Uri]$legacy).Host)*") {
   try { Run @("run", "services", "update", $Service, "--region", $Region, "--project", $Project, "--env-vars-file", $envFile) }
   finally { Remove-Item $envFile -Force -ErrorAction SilentlyContinue }
 }
-$url = "https://" + $hostList[1]
+$url = "https://" + $hostList[2]
 
 Step "7. Domain $Domain"
 # Domain mappings with --region are a beta command in current gcloud releases.
